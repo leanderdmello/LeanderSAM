@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>control_command_adapter</name>
+  <version>1.0.0</version>
+  <description>Adapter between Telerob robot (JSON-RPC interface) and other components with the
+    Telerob SLAM module</description>
+  <maintainer email="n.rood@avular.com">niels</maintainer>
+  <license>Avular</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>cmake_avular</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+  <build_depend>interface_msgs</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>interface_msgs</exec_depend>
+
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>launch</test_depend>
+  <test_depend>launch_ros</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>interface_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+
+    <pip_depend>websockets</pip_depend>
+
+    <debian_depend>nlohmann-json3-dev</debian_depend>
+    <debian_depend>libwebsocketpp-dev</debian_depend>
+    <debian_depend>ros-humble-rclcpp</debian_depend>
+    <debian_depend>ros-humble-std-msgs</debian_depend>
+    <debian_depend>ros-humble-std-srvs</debian_depend>
+    <debian_depend>cmake-avular</debian_depend>
+    <debian_depend>telerob-interface-msgs</debian_depend>
+    <debian_depend>telerob-stub-node</debian_depend>
+  </export>
+</package>

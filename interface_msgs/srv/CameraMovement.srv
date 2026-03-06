@@ -1,0 +1,14 @@
+bool update_zoom false
+bool update_x false
+bool update_y false
+bool update_pan false
+bool update_tilt false
+
+float64 dzoom
+float64 dx
+float64 dy
+float64 dpan
+float64 dtilt
+---
+bool success
+string message

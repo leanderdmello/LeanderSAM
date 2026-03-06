@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Command Adapter Web Client</title>
+</head>
+
+<body>
+    <header>
+        <h1>Control Command Adapter Web Client</h1>
+    </header>
+    <main>
+        <!-- elements -->
+        <!-- connection management: address, connect button -->
+        <!-- robot information: software versions -->
+        <!-- video stream management: address, option, mode -->
+        <!-- floor management: floor list and add/remove/rename/clear floors; select active view/mapping floor -->
+        <!-- view management: modify camera, follow(different types)/move-to robot -->
+        <!-- marker management: add/remove/rename markers -->
+        <!-- map commands: export map, clear map -->
+        <section id="command-interface">
+            <fieldset>
+                <legend>Connection</legend>
+                <input type="text" id="address" placeholder="Address" />
+                <button id="connect">Connect</button>
+                <label for="simulate-remote">Simulate remote behavior</label>
+                <input type="checkbox" id="simulate-remote" /><br />
+                <!-- Telerob remote does a bunch of things:
+                 - periodic retry to connect to module
+                 - as soon as it connects, send a couple of commands in quick succession to fully "initialize" the module in a clean slate:
+                   - Disable video
+                   - Set video address
+                   - Set resolution mode (high)
+                   - Enable video
+                   - Clear map
+                   - Add floor
+                   - Get floors (to get new floor index)
+                   - Select view floor (new floor)
+                when the checkbox is checked, the web client should simulate this behavior.
+                To make it worse, the remote does NOT wait for the response of most commands
+                we can simulate this for most commands, except for ClearMap and GetFloors, since we need to wait for ClearMap to finish before adding a floor,
+                and we need to wait for GetFloors to finish before selecting the new floor as view floor.
+                So we will have to chain these commands in the response handler for those commands.
+                -->
+                <button id="disconnect">Disconnect</button><br />
+                <span id="connection-status">Disconnected</span>
+            </fieldset>
+            <fieldset>
+                <legend>Software Versions</legend>
+                <table id="software-versions-table"></table>
+            </fieldset>
+            <fieldset>
+                <legend>Video stream</legend>
+                <table>
+                    <tr>
+                        <td><label for="video-address">Address:</label></td>
+                        <td>
+                            <input type="text" id="video-address" placeholder="Video Stream Address" />
+                        </td>
+                        <td><label for="video-port">Port:</label></td>
+                        <td><input type="text" id="video-port" placeholder="Video Stream Port" /></td>
+                    <tr>
+                        <td />
+                        <td><input type="button" id="video-set-address" value="Set Video Address"
+                                onclick="setVideoAddress()" /></td>
+                    </tr>
+                    <tr>
+                        <td />
+                        <td>
+                            <input type="button" id="video-enable" value="Enable Video" onclick="enableVideo()" />
+                            <input type="button" id="video-disable" value="Disable Video" onclick="disableVideo()" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label>Mode:</label></td>
+                        <td>
+                            <input type="button" id="video-mode-low" value="Low Quality"
+                                onclick="setResolutionMode('lowres')" />
+                            <input type="button" id="video-mode-high" value="High Quality"
+                                onclick="setResolutionMode('highres')" />
+                        </td>
+                    </tr>
+                </table>
+            </fieldset>
+            <fieldset>
+                <legend>Floors</legend>
+                <table>
+                    <tr>
+                        <td><label for="floor-list">Floors:</label></td>
+                        <td>
+                            <select id="floor-list">
+                                <!-- Floor options will be populated here -->
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label>Actions:</label></td>
+                        <td>
+                            <input type="button" id="floor-add" value="Add Floor" onclick="addFloor()" />
+                            <input type="button" id="floor-remove" value="Remove Floor" onclick="removeFloor()" />
+                            <input type="button" id="floor-rename" value="Rename Floor" onclick="renameFloor()" />
+                            <input type="button" id="floor-set-active-view" value="Set Active View Floor"
+                                onclick="setActiveViewFloor()" />
+                            <input type="button" id="floor-set-active-mapping" value="Set Active Mapping Floor"
+                                onclick="setActiveMappingFloor()" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="floor-name-input">Action Floor Name:</label></td>
+                        <td><input type="text" id="floor-name-input" placeholder="Enter Floor Name" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="active-view-floor">Active View Floor:</label></td>
+                        <td><span id="active-view-floor">None</span> <input type="button" id="floor-clear"
+                                value="Clear Floor" onclick="clearFloor()" /></td>
+                    </tr>
+                    <tr>
+                        <td><label for="active-mapping-floor">Active Mapping Floor:</label></td>
+                        <td><span id="active-mapping-floor">None</span></td>
+                    </tr>
+                    <tr>
+                        <td>Mapping:</td>
+                        <td><input type="button" id="robot-location-to-camera"
+                                value="Set robot location to camera center" onclick="moveRobotToCamera()" /></td>
+                    </tr>
+                </table>
+            </fieldset>
+            <fieldset>
+                <legend>View</legend>
+                <table>
+                    <tr>
+                        <td><label>Scale:</label></td>
+                        <td>
+                            <input type="button" id="view-scale-meters" value="Meters"
+                                onclick="setScaleUnit('meters')" />
+                            <input type="button" id="view-scale-feet" value="Feet" onclick="setScaleUnit('feet')" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label>Follow Mode:</label></td>
+                        <td>
+                            <input type="button" id="view-follow-none" value="No Follow" onclick="followMode('off')" />
+                            <input type="button" id="view-follow-position" value="Position Follow"
+                                onclick="followMode('position')" />
+                            <input type="button" id="view-follow-orientation" value="Position and Orientation Follow"
+                                onclick="followMode('position_and_orientation')" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="view-move-to-robot">Move to Robot:</label></td>
+                        <td><input type="button" id="view-move-to-robot" value="Move to Robot"
+                                onclick="moveToRobot()" /></td>
+                    </tr>
+                    <tr>
+                        <td><label>Camera Controls:</label></td>
+                        <td>
+                            <table>
+                                <tr>
+                                    <td><button id="camera-zoom-in" onclick="zoomInCamera()">+</button></td>
+                                    <td><button id="camera-up" onclick="moveCameraXY(0, -1)">↑</button></td>
+                                    <td><button id="camera-rotate-clockwise" onclick="rotateCamera(-1)">↻</button></td>
+                                    <td><label for="camera-zoom-factor">Zoom Amount: </label><input type="number"
+                                            id="camera-zoom-factor" value="0.1" style="width: 50px;" step="0.01"
+                                            min="0.01" max="1" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><button id="camera-left" onclick="moveCameraXY(-1, 0)">←</button></td>
+                                    <td />
+                                    <td><button id="camera-right" onclick="moveCameraXY(1, 0)">→</button></td>
+                                    <td><label for="camera-move-amount">Move Amount: </label><input type="number"
+                                            id="camera-move-amount" value="0.1" style="width: 50px;" step="0.01"
+                                            min="0.01" max="1" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><button id="camera-zoom-out" onclick="zoomOutCamera()">-</button></td>
+                                    <td><button id="camera-down" onclick="moveCameraXY(0, 1)">↓</button></td>
+                                    <td><button id="camera-rotate-counterclockwise" onclick="rotateCamera(1)">↺</button>
+                                    </td>
+                                    <td><label for="camera-rotate-amount">Rotate Amount: </label><input type="number"
+                                            id="camera-rotate-amount" value="0.1" style="width: 50px;" step="0.01"
+                                            min="0.01" max="1" />
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </fieldset>
+            <fieldset>
+                <legend>Markers</legend>
+                <table>
+                    <tr>
+                        <td><label for="marker-list">Markers:</label></td>
+                        <td>
+                            <select id="marker-list">
+                                <!-- Marker options will be populated here -->
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label>Actions:</label></td>
+                        <td>
+                            <input type="button" id="marker-add" value="Add Marker" onclick="addMarker()" />
+                            <input type="button" id="marker-remove" value="Remove Marker" onclick="removeMarker()" />
+                            <input type="button" id="marker-rename" value="Rename Marker" onclick="renameMarker()" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="marker-name-input">Action Marker Name:</label></td>
+                        <td><input type="text" id="marker-name-input" placeholder="Enter Marker Name" /></td>
+                    </tr>
+                </table>
+            </fieldset>
+            <fieldset>
+                <legend>Map Commands</legend>
+                <table>
+                    <tr>
+                        <td><label>Export:</label></td>
+                        <td>
+                            <input type="text" id="map-export-label" placeholder="Map Label" />
+                            <input type="button" id="map-export" value="Export Map" onclick="exportMap()" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label>Clear:</label></td>
+                        <td><input type="button" id="map-clear" value="Clear Map" onclick="clearMap()" /></td>
+                    </tr>
+                </table>
+            </fieldset>
+            <fieldset>
+                <legend>Logs</legend>
+                <textarea id="logs" rows="10" cols="80" readonly></textarea>
+            </fieldset>
+            <fieldset>
+                <legend>Miscellaneous</legend>
+                <table>
+                    <tr>
+                        <td>Gamepad Camera Control</td>
+                        <td><input type="checkbox" id="gamepad-camera-control" /></td>
+                    </tr>
+                    <tr>
+                        <td>Gamepad live axes:</td>
+                        <td>
+                            <span id="gamepad-axis-1"></span><br />
+                            <span id="gamepad-axis-2"></span><br />
+                            <span id="gamepad-axis-3"></span><br />
+                            <span id="gamepad-axis-4"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Gamepad live inputs</td>
+                        <td>
+                            <span id="gamepad-movex"></span><br />
+                            <span id="gamepad-movey"></span><br />
+                            <span id="gamepad-rotation"></span><br />
+                            <span id="gamepad-zoom"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Current Follow Mode:</td>
+                        <td><span id="current-follow-mode">Off</span></td>
+                    </tr>
+                    <tr>
+                        <td>Button Mapping:</td>
+                        <td>A: Reset Camera to Robot Location</td>
+                        <td>B: Toggle Follow Mode</td>
+                        <td>Y: Set Robot Location to Camera Location</td>
+                        <td>X: Place Marker (name should be non-empty)</td>
+                    </tr>
+                </table>
+            </fieldset>
+        </section>
+    </main>
+    <script>
+        // capabilities:
+        // - connect to control command adapter over websocket
+        // - send commands based on user input
+        // - receive and process responses and updates from the adapter
+
+        // WebSocket connection
+        let socket;
+        let sentCommands = []
+
+        document.getElementById('connect').onclick = function () {
+            const address = document.getElementById('address').value;
+
+            // ensure any existing socket is cleaned up before creating a new one
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+                socket.onopen = null;
+                socket.onclose = null;
+                socket.onerror = null;
+                socket.onmessage = null;
+                socket.close();
+            }
+            socket = new WebSocket(`ws://${address}`)
+
+            logMessage('NOTIFICATION', 'Connecting to ' + address + '...');
+            document.getElementById('connection-status').textContent = 'Connecting...';
+
+            socket.onopen = function () {
+                logMessage('NOTIFICATION', 'Connected to ' + address);
+                document.getElementById('connection-status').textContent = 'Connected';
+
+                // Initial commands to populate UI
+                getSoftwareVersions();
+
+                if (document.getElementById('simulate-remote').checked) {
+                    logMessage('NOTIFICATION', 'Simulating remote behavior: Initializing module...');
+                    const videoAddressElement = document.getElementById('video-address');
+                    const videoPortElement = document.getElementById('video-port');
+                    const hasVideoConfig = videoAddressElement &&
+                        videoPortElement &&
+                        videoAddressElement.value &&
+                        videoPortElement.value;
+
+                    if (hasVideoConfig) {
+                        // Simulate Telerob remote initialization sequence
+                        disableVideo();
+                        setVideoAddress();
+                        setResolutionMode('highres');
+                        enableVideo();
+                    } else {
+                        // Avoid sending commands with empty video address/port when simulating
+                        logMessage('WARNING', 'Skipping video initialization in simulation: video address/port not configured.');
+                    }
+                    clearMap();
+                    // should wait for clearmap response to be successful before adding floor
+                } else {
+                    getFloors();
+                    getMarkers();
+                    getActiveViewFloor();
+                    getActiveMappingFloor();
+                }
+            };
+
+            socket.onmessage = function (event) {
+
+                let message = JSON.parse(event.data);
+
+                let id = message?.id ?? null;
+                let result = message?.result ?? null;
+                let error = message?.error ?? null;
+
+                console.log(`Message from server: ${event.data} (ID = ${id}, Result = ${result}, Error = ${error}) `);
+
+                if (id !== null) {
+                    if (error !== null) {
+                        logMessage('ERROR', `ID: ${id}, Error: ${JSON.stringify(error)}`);
+
+                        switch (sentCommands[id].method) {
+                            case 'GetViewFloor':
+                                document.getElementById('active-view-floor').textContent = 'None';
+                                break;
+                            case 'GetMappingFloor':
+                                document.getElementById('active-mapping-floor').textContent = 'None';
+                                break;
+                        }
+                    } else {
+                        logMessage('RESPONSE', `ID: ${id}, Result: ${JSON.stringify(result)}`);
+
+                        switch (sentCommands[id].method) {
+                            case 'ClearMap':
+                                if (document.getElementById('simulate-remote').checked) {
+                                    logMessage('NOTIFICATION', 'Simulating remote behavior: Adding floor after ClearMap...');
+                                    addFloor("Test1");
+                                } else {
+                                    getFloors();
+                                    getMarkers();
+                                }
+                                getActiveViewFloor();
+                                getActiveMappingFloor();
+                                break;
+                            case 'AddFloor':
+                            case 'DeleteFloor':
+                            case 'SetFloorName':
+                                getFloors();
+                                getActiveViewFloor();
+                                getActiveMappingFloor();
+                                // Floor changes to active floor have delayed impact on markers
+                                getMarkersDelayed();
+                                break;
+                            case 'GetFloors':
+                                populateFloorList(result);
+                                if (document.getElementById('simulate-remote').checked) {
+                                    logMessage('NOTIFICATION', 'Simulating remote behavior: Selecting just-created floor as view floor after GetFloors...');
+                                    // get the index of the floor with name Test1
+                                    let newFloorIndex = result.findIndex(floorName => floorName === "Test1");
+                                    if (newFloorIndex >= 0) {
+                                        setActiveViewFloor(newFloorIndex);
+                                    } else {
+                                        // floor Test1 was not found; do not attempt to set an invalid view floor index
+                                        logMessage('ERROR', 'Floor "Test1" not found in GetFloors result; cannot set active view floor.');
+                                    }
+                                }
+                                break;
+                            case 'ClearFloor':
+                                getActiveViewFloor();
+                                getActiveMappingFloor();
+                            // fallthrough
+                            case 'AddMarker':
+                            case 'RemoveMarker':
+                            case 'SetMarkerLabel':
+                                getMarkers();
+                                break;
+                            case 'GetMarkers':
+                                populateMarkerList(result);
+                                break;
+                            case 'SelectViewFloor':
+                                getActiveViewFloor();
+                                // Floor changes to active floor have delayed impact on markers
+                                getMarkersDelayed();
+                                break;
+                            case 'SelectMappingFloor':
+                                getActiveMappingFloor();
+                                break;
+                            case 'GetViewFloor':
+                                updateActiveViewFloor(result);
+                                break;
+                            case 'GetMappingFloor':
+                                updateActiveMappingFloor(result);
+                                break;
+                            case 'GetSoftwareVersions':
+                                updateSoftwareVersions(result);
+                                break;
+                        }
+                    }
+                } else {
+                    logMessage('NOTIFICATION', `${JSON.stringify(message)}`);
+                }
+
+                // Here you can add code to process incoming messages
+            };
+
+            socket.onclose = function () {
+                document.getElementById('connection-status').textContent = 'Disconnected';
+                logMessage('NOTIFICATION', 'WebSocket connection closed.');
+                if (document.getElementById('simulate-remote').checked) {
+                    logMessage('NOTIFICATION', 'Simulating remote behavior: Reconnecting in 1 second...');
+                    setTimeout(() => {
+                        document.getElementById('connect').onclick();
+                    }, 1000);
+                }
+            };
+
+            socket.onerror = function (error) {
+                logMessage('ERROR', 'WebSocket error: ' + error);
+                document.getElementById('connection-status').textContent = 'Error';
+                socket.close();
+            };
+        };
+
+        document.getElementById('disconnect').onclick = function () {
+            // stop simulation by unchecking the checkbox
+            document.getElementById('simulate-remote').checked = false;
+            document.getElementById('connection-status').textContent = 'Disconnecting...';
+            logMessage('NOTIFICATION', 'Disconnecting from server...');
+            if (socket) {
+                socket.close();
+            }
+        };
+
+        function logMessage(type, message) {
+            const logArea = document.getElementById('logs');
+            logArea.value += `[${type}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function sendCommand(command, params) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const message = {
+                    jsonrpc: "2.0",
+                    method: command,
+                    id: sentCommands.length,
+                    params: params || {}
+                };
+                sentCommands.push(message);
+                socket.send(JSON.stringify(message));
+                console.log('Sent command: ' + JSON.stringify(message));
+                logMessage('SENT', JSON.stringify(message));
+            } else {
+                console.error('WebSocket is not connected.');
+            }
+        }
+
+        // UI Population Functions
+        function populateFloorList(floors) {
+            const floorList = document.getElementById('floor-list');
+            floorList.innerHTML = '';
+            floors.forEach((floor, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = floor;
+                floorList.appendChild(option);
+            });
+        }
+
+        function populateMarkerList(markers) {
+            const markerList = document.getElementById('marker-list');
+            markerList.innerHTML = '';
+            markers.forEach((marker, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = marker;
+                markerList.appendChild(option);
+            });
+        }
+
+        function updateActiveViewFloor(floorIndex) {
+            const floorName = document.getElementById('floor-list').options[floorIndex].text;
+            document.getElementById('active-view-floor').textContent = floorName;
+        }
+
+        function updateActiveMappingFloor(floorIndex) {
+            const floorName = document.getElementById('floor-list').options[floorIndex].text;
+            document.getElementById('active-mapping-floor').textContent = floorName;
+        }
+
+        function updateSoftwareVersions(versions) {
+            const table = document.getElementById('software-versions-table');
+            table.innerHTML = '';
+            for (const [component, version] of Object.entries(versions)) {
+                const row = document.createElement('tr');
+                const componentCell = document.createElement('td');
+                componentCell.textContent = component;
+                const versionCell = document.createElement('td');
+                versionCell.textContent = version;
+                row.appendChild(componentCell);
+                row.appendChild(versionCell);
+                table.appendChild(row);
+            }
+        }
+
+        // Commands
+        function setVideoAddress() {
+            const address = document.getElementById('video-address').value;
+            const port = parseInt(document.getElementById('video-port').value) || 5000;
+            sendCommand('SetVideoStreamAddress', { IpAddress: address, Port: port });
+        }
+
+        function enableVideo() {
+            sendCommand('SetVideoStreamOption', { VideoStreamOption: true });
+        }
+
+        function disableVideo() {
+            sendCommand('SetVideoStreamOption', { VideoStreamOption: false });
+        }
+
+        function setResolutionMode(mode) {
+            sendCommand('SetVideoResolutionMode', { ResolutionMode: mode });
+        }
+
+        function getFloors() {
+            sendCommand('GetFloors');
+        }
+
+        function addFloor(name) {
+            const floorName = name ?? document.getElementById('floor-name-input').value;
+            sendCommand('AddFloor', { FloorName: floorName });
+        }
+
+        function removeFloor() {
+            const floorList = document.getElementById('floor-list');
+            const selectedFloor = floorList.value;
+            sendCommand('DeleteFloor', { FloorIndex: Number(selectedFloor) });
+        }
+
+        function renameFloor() {
+            const floorList = document.getElementById('floor-list');
+            const selectedFloor = floorList.value;
+            const newFloorName = document.getElementById('floor-name-input').value;
+            sendCommand('SetFloorName', { FloorIndex: Number(selectedFloor), FloorName: newFloorName });
+        }
+
+        function clearFloor() {
+            sendCommand('ClearFloor');
+        }
+
+        function setActiveViewFloor(index) {
+            const floorList = document.getElementById('floor-list');
+            const selectedFloor = index ?? floorList.value;
+            sendCommand('SelectViewFloor', { FloorIndex: Number(selectedFloor) });
+        }
+
+        function setActiveMappingFloor() {
+            const floorList = document.getElementById('floor-list');
+            const selectedFloor = floorList.value;
+            sendCommand('SelectMappingFloor', { FloorIndex: Number(selectedFloor) });
+        }
+
+        function getActiveViewFloor() {
+            sendCommand('GetViewFloor');
+        }
+
+        function getActiveMappingFloor() {
+            sendCommand('GetMappingFloor');
+        }
+
+        function moveToRobot() {
+            sendCommand('MoveCameraToRobotLocation');
+        }
+
+        function moveRobotToCamera() {
+            sendCommand('SetRobotLocationToCameraPosition');
+        }
+
+        function setScaleUnit(unit) {
+            // unit can be 'meters' or 'feet'
+            sendCommand('SetScaleUnit', { ScaleUnit: unit });
+        }
+
+        function followMode(mode) {
+            // mode can be 'off', 'position', 'position_and_orientation'
+            sendCommand('SetFollowRobotOption', { FollowRobot: mode });
+            window.currentFollowMode = mode;
+            document.getElementById('current-follow-mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1).replace(/_/g, ' ');
+        }
+
+        function zoomInCamera() {
+            const zoomAmount = parseFloat(document.getElementById('camera-zoom-factor').value) || 0.1;
+            sendCommand('ModifyCamera', { Zoom: zoomAmount });
+        }
+
+        function zoomOutCamera() {
+            const zoomAmount = parseFloat(document.getElementById('camera-zoom-factor').value) || 0.1;
+            sendCommand('ModifyCamera', { Zoom: -zoomAmount });
+        }
+
+        function moveCameraXY(dx, dy) {
+            const moveAmount = parseFloat(document.getElementById('camera-move-amount').value) || 0.1;
+            dx *= moveAmount;
+            dy *= moveAmount;
+            sendCommand('ModifyCamera', { XTranslation: dx, YTranslation: dy });
+        }
+
+        function rotateCamera(angle) {
+            const rotateAmount = parseFloat(document.getElementById('camera-rotate-amount').value) || 0.1;
+            angle *= rotateAmount;
+            sendCommand('ModifyCamera', { Pan: angle });
+        }
+
+        function getMarkers() {
+            sendCommand('GetMarkers');
+        }
+
+        function getMarkersDelayed() {
+            setTimeout(() => {
+                getMarkers();
+            }, 2000);
+        }
+
+        function addMarker() {
+            const markerName = document.getElementById('marker-name-input').value;
+            sendCommand('AddMarker', { MarkerName: markerName });
+        }
+
+        function removeMarker() {
+            const markerList = document.getElementById('marker-list');
+            const selectedMarker = markerList.value;
+            sendCommand('RemoveMarker', { MarkerIndex: Number(selectedMarker) });
+        }
+
+        function renameMarker() {
+            const markerList = document.getElementById('marker-list');
+            const selectedMarker = markerList.value;
+            const newMarkerName = document.getElementById('marker-name-input').value;
+            sendCommand('SetMarkerLabel', { MarkerIndex: Number(selectedMarker), MarkerLabel: newMarkerName });
+        }
+
+        function exportMap() {
+            const label = document.getElementById('map-export-label').value;
+            sendCommand('ExportMap', { Label: label });
+        }
+
+        function clearMap() {
+            sendCommand('ClearMap');
+        }
+
+        function getSoftwareVersions() {
+            sendCommand('GetSoftwareVersions');
+        }
+
+
+        // Simple gamepad camera control
+        window.addEventListener("gamepadconnected", function (e) {
+            logMessage('NOTIFICATION', `Gamepad connected at index ${e.gamepad.index}: ${e.gamepad.id}.`);
+        });
+
+        window.currentFollowMode = 'off';
+        window.setInterval(function () {
+            if (document.getElementById('gamepad-camera-control').checked) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                    // use any of the connected gamepads
+                    let gamepad = null;
+                    for (g of gamepads) {
+                        if (g) {
+                            gamepad = g;
+                            // logMessage('NOTIFICATION', `Using gamepad at index ${gamepad.index}: ${gamepad.id}.`);
+                            break;
+                        }
+                    }
+                    if (gamepad) {
+                        const gp = gamepad;
+                        const xAxis = gp.axes[0]; // Left stick horizontal
+                        const yAxis = gp.axes[1]; // Left stick vertical
+                        const rotateAxis = gp.axes[2]; // Right stick horizontal
+                        const zoomAxis = gp.axes[3]; // Right stick vertical
+
+                        // button mapping (xbox controller):
+                        // abxy = 0123
+                        // actions to map:
+                        // - reset camera to robot location (A button, 0)
+                        // - toggle follow mode (B button, 1)
+                        // - set robot location to camera location (Y button, 3)
+                        // - place marker (X button, 2)
+                        if (gp.buttons[0].pressed) { // A button
+                            moveToRobot();
+                        }
+                        if (gp.buttons[1].pressed) { // B button
+                            switch (window.currentFollowMode) {
+                                case 'off':
+                                    followMode('position');
+                                    break;
+                                case 'position':
+                                    followMode('position_and_orientation');
+                                    break;
+                                case 'position_and_orientation':
+                                    followMode('off');
+                                    break;
+                            }
+                        }
+                        if (gp.buttons[3].pressed) { // Y button
+                            moveRobotToCamera();
+                        }
+                        if (gp.buttons[2].pressed) { // X button
+                            addMarker();
+                        }
+
+                        document.getElementById('gamepad-axis-1').textContent = `Axis 1 (X): ${xAxis.toFixed(2)}`;
+                        document.getElementById('gamepad-axis-2').textContent = `Axis 2 (Y): ${yAxis.toFixed(2)}`;
+                        document.getElementById('gamepad-axis-3').textContent = `Axis 3 (Rotate): ${rotateAxis.toFixed(2)}`;
+                        document.getElementById('gamepad-axis-4').textContent = `Axis 4 (Zoom): ${zoomAxis.toFixed(2)}`;
+
+                        const threshold = 0.2; // Deadzone threshold
+
+                        const moveAmount = parseFloat(document.getElementById('camera-move-amount').value) || 1;
+                        const rotateAmount = parseFloat(document.getElementById('camera-rotate-amount').value) || 15;
+                        const zoomAmount = (parseFloat(document.getElementById('camera-zoom-factor').value) || 1.5) - 1.0;
+
+                        let params = {};
+
+                        if (Math.abs(xAxis) > threshold) {
+                            // params.XTranslation = xAxis * moveAmount * 0.1; // Scale as needed
+                            params.XTranslation = xAxis * 0.1;
+                        }
+                        if (Math.abs(yAxis) > threshold) {
+                            // params.YTranslation = yAxis * moveAmount * 0.1; // Scale as needed
+                            params.YTranslation = yAxis * 0.1;
+                        }
+                        if (Math.abs(rotateAxis) > threshold) {
+                            // params.Pan = rotateAxis * rotateAmount * 0.1; // Scale as needed
+                            params.Pan = rotateAxis * 0.1;
+                        }
+                        if (Math.abs(zoomAxis) > threshold) {
+                            // params.Zoom = 1.0 - zoomAxis * zoomAmount * 0.1; // Scale as needed
+                            params.Zoom = -zoomAxis * 0.1;
+                        }
+
+                        if (Object.keys(params).length > 0) {
+                            sendCommand('ModifyCamera', params);
+                        }
+                    }
+                }
+            }
+        }, 100); // Check every 100ms
+    </script>
+</body>
+
+</html>

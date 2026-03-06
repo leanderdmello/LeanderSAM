@@ -1,0 +1,8 @@
+services:
+  slam:
+    volumes:
+      - "/home/avular/telerob:/home/avular/ws/context:rw"
+
+  interface:
+    volumes:
+      - "/home/avular/telerob:/home/avular/ws/context:rw"

@@ -1,0 +1,11 @@
+## ROS2 service call to set the mode of operation.
+
+
+### Type of operation
+slam_manager_msgs/SlamMode mode
+
+---
+# Whether the mode has been sent successfully
+bool success false
+# Confirmation or error message
+string message "Unexpected Error. Response message not set."

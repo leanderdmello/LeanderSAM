@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_USB_DRIVER}=="usb-storage", ENV{DEVTYPE}=="partition", ENV{SYSTEMD_WANTS}+="telerob-updates@%k.service telerob-configuration@%k.service telerob-monitor-device@%k.service"

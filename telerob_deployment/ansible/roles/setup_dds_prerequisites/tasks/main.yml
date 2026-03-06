@@ -1,0 +1,44 @@
+- name: Increase max read buffer size for sockets
+  lineinfile:
+    path: /etc/sysctl.conf
+    regexp: "^net.core.rmem_max =.*"
+    line: "net.core.rmem_max = {{ max_read_buffer_size }}"
+  become: true
+
+- name: Increase max write buffer size for sockets
+  lineinfile:
+    path: /etc/sysctl.conf
+    regexp: "^net.core.wmem_max =.*"
+    line: "net.core.wmem_max = {{ max_write_buffer_size }}"
+  become: true
+
+- name: Apply sysctl changes
+  command: sysctl -p
+  become: true
+
+- name: Configure the multicast loopback interface
+  copy:
+    src: "50-loopback-if.rules"
+    dest: "/etc/udev/rules.d/50-loopback-if.rules"
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+
+- name: Reload udev rules
+  command: udevadm control --reload
+  become: true
+
+- name: Make sure telerob deployment directory exists
+  file:
+    path: "{{ telerob_dir }}"
+    state: directory
+    mode: "0755"
+    recurse: true
+  become: true
+
+- name: Copy DDS configuration file
+  copy:
+    src: "cyclone_loopback.xml"
+    dest: "/opt/telerob/cyclone_loopback.xml"
+  become: true

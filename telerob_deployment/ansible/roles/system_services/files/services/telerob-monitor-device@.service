@@ -1,0 +1,12 @@
+[Unit]
+Description=Monitor Device %i for write activity
+
+[Service]
+Type=simple
+ExecStart=/opt/telerob/system/monitor-device-writes.sh /dev/%i
+Restart=always
+RestartSec=5s
+
+
+[Install]
+WantedBy=multi-user.target

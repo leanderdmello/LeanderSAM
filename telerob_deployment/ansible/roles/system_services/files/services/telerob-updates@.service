@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply Telerob Update from %i if a package is Available
+
+[Service]
+Type=oneshot
+ExecStart=/opt/telerob/system/apply-update-if-available.sh /dev/%i

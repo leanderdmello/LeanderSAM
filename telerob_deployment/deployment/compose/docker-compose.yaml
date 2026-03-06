@@ -1,0 +1,61 @@
+services:
+  slam:
+    image: "ghcr.io/avular-robotics/telerob-slam-bringup:${SLAM_BRINGUP_VERSION:-nightly}"
+    network_mode: "host"
+    command: ["ros2", "launch", "slam_bringup", "default.launch.py"]
+    volumes:
+      - "/dev:/dev:rw"
+      - "../config/ouster_mask.png:/opt/ros/humble/share/slam_bringup/config/ouster_mask.png:ro"
+      - "/opt/telerob/cyclone_loopback.xml:/opt/telerob/cyclone_loopback.xml:ro"
+      - "/var/opt/telerob/overrides:/var/opt/telerob/overrides:ro"
+      - "/home/avular/internal_storage:/home/avular/internal_storage:rw"
+    privileged: true
+    restart: on-failure
+    platform: linux/arm64
+    environment:
+      CYCLONEDDS_URI: "/opt/telerob/cyclone_loopback.xml"
+      ROS_DOMAIN_ID: 13
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          'bash -c "if [ -f \"/home/avular/ws/install/setup.bash\" ]; then
+          source \"/home/avular/ws/install/setup.bash\"; else
+          source \"/opt/ros/humble/setup.bash\"; fi &&
+          /home/avular/internal_storage/slam_healthcheck.py"',
+        ]
+      interval: 5s
+      timeout: 30s
+      retries: 20
+  interface:
+    image: "ghcr.io/avular-robotics/telerob-interface:${INTERFACE_VERSION:-nightly}"
+    network_mode: "host"
+    command: ["ros2", "launch", "interface_bringup", "default.launch.py"]
+    runtime: nvidia
+    volumes:
+      - "/var/opt/telerob:/var/opt/telerob:rw"
+      - "/var/opt/telerob/overrides:/var/opt/telerob/overrides:ro"
+      - "/tmp/argus_socket:/tmp/argus_socket:rw"
+      - "/home/avular/internal_storage:/home/avular/internal_storage:rw"
+      - "../config/versions.txt:/home/avular/internal_storage/versions.txt:ro"
+      - type: bind
+        source: "/media/avular"
+        target: "/home/avular/external_storage"
+        bind:
+          propagation: rshared
+      - "/opt/telerob/cyclone_loopback.xml:/opt/telerob/cyclone_loopback.xml:ro"
+    restart: on-failure
+    platform: linux/arm64
+    environment:
+      CYCLONEDDS_URI: "/opt/telerob/cyclone_loopback.xml"
+      ROS_DOMAIN_ID: 13
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      slam:
+        condition: service_healthy
+        restart: true

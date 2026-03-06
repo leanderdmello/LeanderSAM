@@ -1,0 +1,11 @@
+[Unit]
+Description=Monitor Power Error Signal on GPIO10
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/opt/telerob/system/power-error-shutdown.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

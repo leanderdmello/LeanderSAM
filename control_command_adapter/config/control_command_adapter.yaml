@@ -1,0 +1,35 @@
+control_command_adapter:
+  ros__parameters:
+    port: 9090
+    cmd_timeout: 10000 #ms
+    topics:
+      out:
+        robot_status: "robot_status" # [interface_msgs::msg::RobotStatus] Service that is called to get the current robot status, wether it is moving or not and which optional hardware is pressent
+    services:
+      client:
+        modify_camera: "modify_camera" # [interface_msgs::srv::CameraMovement] Service that is called to change Zoom, XTranslation, YTranslation, Pan, Tilt of the visualization
+        move_camera_to_robot: "move_camera_to_robot" # [std_srvs::srv::Trigger] Service that is called to move the camera to the robot position
+        follow_robot: "follow_robot" # [interface_msgs::srv::FollowRobot] Service that is called to Follow the robot in mode off, position or position and orientation
+        set_robot_location_to_camera: "set_robot_location_to_camera" # [std_srvs::srv::Trigger] Service that is called to set the robot location to the current camera position
+        add_floor: "add_floor" # [interface_msgs::srv::SetString] Service that is called to add a new floor with a given name and then move to mapping mode
+        delete_floor: "delete_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to delete a floor by its index and then move back to idle mode
+        clear_floor: "clear_floor" # [std_srvs::srv::Trigger] Service that is called to clear a floor and move back to mapping mode
+        get_floors: "get_floors" # [interface_msgs::srv::Listing] Service that is called to get the list of floor names
+        select_mapping_floor: "select_mapping_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to select the localization floor by its index and move to localizing mode
+        get_mapping_floor: "get_mapping_floor" # [interface_msgs::srv::GetIndex] Service that is called to get the current localization floor index
+        select_view_floor: "select_view_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to select the view floor by its index
+        get_view_floor: "get_view_floor" # [interface_msgs::srv::GetIndex] Service that is called to get the current view floor index
+        set_floor_name: "set_floor_name" # [interface_msgs::srv::UpdateStringAt] Service that is called to set the name of a floor by its index
+        export_map: "export_map" # [interface_msgs::srv::SetString] Service that is called to export the current map to the sdcard
+        clear_map: "clear_map" # [std_srvs::srv::Trigger] Service that is called to clear the entire map and move back to idle mode
+        add_marker: "add_marker" # [interface_msgs::srv::SetString] Service that is called to add a marker at a given position with a given name
+        remove_marker: "remove_marker" # [interface_msgs::srv::ActionOnOptionalIndex] Service that is called to remove a marker by its index. When no index is provided the closest marker to the robot is removed
+        get_markers: "get_markers" # [interface_msgs::srv::Listing] Service that is called to get the list of marker names
+        set_marker_label: "set_marker_label" # [interface_msgs::srv::SetString] Service that is called to set the label of a marker closest to the robot
+        set_marker_label_at_position: "set_marker_label_at" # [interface_msgs::srv::UpdateStringAt] Service that is called to set the label of a marker by its index
+        get_software_versions: "get_software_versions" # [interface_msgs::srv::Listing] Service that is called to get the software versions of the different docker containers
+        scale_unit_meters: "scale_unit_meters" # [std_srvs::srv::SetBool] Service that is called to set the scale unit in meters or feet for the map scaling functionality
+        set_video_resolution_mode: "set_video_resolution_mode" # [interface_msgs::srv::SetVideoResolutionMode] Service that is called to set the video resolution mode (low res, high res)
+        set_video_stream_address: "set_video_stream_address" # [interface_msgs::srv::SetVideoStreamAddress] Service that is called to set the video stream ip address and port
+        set_video_stream_enabled: "set_video_stream" # [std_srvs::srv::SetBool] Service that is called to enable or disable the video stream
+        clear_path: "clear_path" # [std_srvs::srv::Trigger] Service that is called to clear the all trajectories in a floor

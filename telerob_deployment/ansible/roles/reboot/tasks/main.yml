@@ -1,0 +1,6 @@
+- name: Reboot if fstab has been changed
+  when:
+    - inventory_hostname == "remote"
+    - fstab_updated | default(false) | bool
+  reboot:
+  become: true

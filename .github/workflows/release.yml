@@ -1,0 +1,69 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release"
+        type: string
+        required: true
+      release-candidate:
+        description: "Create a release candidate"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  get_latest_version:
+    uses: avular-robotics/avular_ci/.github/workflows/get-latest-release.yml@PV-773-improve-release-actions
+    secrets: inherit
+
+  check_version:
+    needs: get_latest_version
+    runs-on: [self-hosted, linux, docker, micro-linux]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CI_ACCESS_TOKEN }}
+
+      - name: Check version number
+        run: |
+          echo "Checking version number ${{ inputs.version }}"
+
+          # Check if we are on the default branch
+          if [[ ${{ github.ref }} != "refs/heads/${{ github.event.repository.default_branch }}" ]]; then
+            echo "Not on the default branch ${{ github.event.repository.default_branch }}"
+            exit 1
+          fi
+
+          # The version number must be in the format x.y.z
+          if [[ ! ${{ inputs.version }} =~ ^[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "Invalid version number ${{inputs.version}}. Must be in the format x.y.z*"
+            exit 1
+          fi
+
+          if [[ "${{ needs.get_latest_version.outputs.latest_found }}" == "true" ]]; then
+            # Check if the version number is already released
+            if [[ ${{ inputs.version }} == "${{ needs.get_latest_version.outputs.latest_release }}" ]]; then
+              echo "Version number is already ${{ needs.get_latest_version.outputs.latest_release }}"
+              exit 1
+            fi
+          fi
+          echo "Version number is valid"
+
+  test-package-release:
+    needs: [check_version]
+    uses: ./.github/workflows/test-package-release.yml
+    with:
+      version: ${{ inputs.version }}
+      environment: stable
+      versioning-build-type: release
+      prerelease: ${{ inputs.release-candidate }}
+    secrets: inherit

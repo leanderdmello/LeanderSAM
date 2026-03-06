@@ -1,0 +1,35 @@
+map_manager:
+  ros__parameters:
+    map_export_path: "/home/avular/sdcard/maps/"
+    version_file_path: "/home/avular/internal_storage/versions.txt"
+    map_path: "/home/avular/internal_storage/maps/"
+    map_save_interval: 10000 #ms
+    slam_timeout: 10000 #ms
+    topics:
+      subscriptions:
+        robot_status: "robot_status" # [interface_msgs::msg::RobotStatus] Topic that provides the current robot status, wether it is moving or not and which optional hardware is present
+        trajectory: "/slam/mapping/path" # [nav_msgs::msg::Path] Topic that provides the current trajectory information for the robot
+        global_map: "/slam/mapping/map_global" # [sensor_msgs::msg::PointCloud2] Topic that provides the global map updates
+        visualization_map: "/slam/mapping/map_global" # [sensor_msgs::msg::PointCloud2] Topic that provides the visualization map updates
+        slam_mode: "/slam/slam_mode" # [slam_manager_msgs::msg::SlamMode] Topic that provides the current SLAM mode (mapping/localizing/idle)
+      out:
+        point_cloud_available: "point_cloud_available" # [interface_msgs::msg::PointCloudAvailable] Topic that indicates whether point cloud data is available from the SLAM system
+        mapping_point_cloud_available: "mapping_point_cloud_available" # [interface_msgs::msg::PointCloudAvailable] Topic that indicates where the SLAM system can find the current mapping floor point cloud data
+        trajectories: "trajectories" # [interface_msgs::msg::Trajectories] Topic that provides the trajectories information for a floor
+    services:
+      server:
+        add_floor: "add_floor" # [interface_msgs::srv::SetString] Service that is called to add a new floor with a given name and then move to mapping mode
+        delete_floor: "delete_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to delete a floor by its index and then move back to idle mode
+        clear_floor: "clear_floor" # [std_srvs::srv::Trigger] Service that is called to clear a floor and move back to mapping mode
+        get_floors: "get_floors" # [interface_msgs::srv::Listing] Service that is called to get the list of floor names
+        select_mapping_floor: "select_mapping_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to select the localization floor by its index and move to localizing mode
+        get_mapping_floor: "get_mapping_floor" # [interface_msgs::srv::GetIndex] Service that is called to get the current localization floor index
+        select_view_floor: "select_view_floor" # [interface_msgs::srv::ActionOnIndex] Service that is called to select the view floor by its index
+        get_view_floor: "get_view_floor" # [interface_msgs::srv::GetIndex] Service that is called to get the current view floor index
+        set_floor_name: "set_floor_name" # [interface_msgs::srv::UpdateStringAt] Service that is called to set the name of a floor by its index
+        export_map: "export_map" # [interface_msgs::srv::SetString] Service that is called to export the current map to the sdcard
+        clear_map: "clear_map" # [std_srvs::srv::Trigger] Service that is called to clear the entire map and move back to idle mode
+        get_software_versions: "get_software_versions" # [interface_msgs::srv::Listing] Service that is called to get the software versions of the different docker containers
+        clear_path: "clear_path" # [std_srvs::srv::Trigger] Service that is called to clear the all trajectories in a floor
+      client:
+        set_slam_mode: "/slam/set_slam_mode" # [slam_manager_msgs::srv::SetSlamMode] Service that is called to set the SLAM mode (mapping/localizing/idle)

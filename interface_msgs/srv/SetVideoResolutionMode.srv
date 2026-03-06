@@ -1,0 +1,6 @@
+uint8 LOWRES=0
+uint8 HIGHRES=1
+uint8 mode 0
+---
+bool success
+string message

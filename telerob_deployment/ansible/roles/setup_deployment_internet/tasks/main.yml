@@ -1,0 +1,62 @@
+- name: Disable automatic APT updates
+  lineinfile:
+    regexp: 'APT::Periodic::Update-Package-Lists \"\d\";'
+    line: 'APT::Periodic::Update-Package-Lists "0";'
+    path: '/etc/apt/apt.conf.d/10periodic'
+  become: true
+
+- name: Create temporary directory for internet sharing scripts
+  when:
+    - inventory_hostname == 'remote'
+    - ansible_facts['system'] == 'Linux'
+    - share_internet_connection | default(true) | bool
+  tempfile:
+    state: directory
+  register: internet_script_tempdir
+  delegate_to: localhost
+  become: true
+
+- name: Ensure script to share internet connection is present
+  when:
+    - inventory_hostname == 'remote'
+    - ansible_facts['system'] == 'Linux'
+    - share_internet_connection | default(true) | bool
+  copy:
+    src: "{{ item.script_file }}"
+    dest: "{{ internet_script_tempdir.path }}/{{ item.script_file }}"
+    mode: "0755"
+  loop:
+    - { script_file: "share-internet-to-jetson.sh" }
+    - { script_file: "common.sh" }
+    - { script_file: "get-connected-jetson-interface.sh" }
+  delegate_to: localhost
+  become: true
+
+- name: Run script to share internet connection of flashing machine
+  when:
+    - inventory_hostname == 'remote'
+    - ansible_facts['system'] == 'Linux'
+    - share_internet_connection | default(true) | bool
+  command:
+    cmd: ./share-internet-to-jetson.sh -u avular -p avular
+    chdir: "{{ internet_script_tempdir.path }}"
+  delegate_to: localhost
+  become: true
+
+- name: Check whether the target has internet access
+  when:
+    - inventory_hostname == 'remote'
+  command: ping -c 3 google.com
+  ignore_errors: true
+  register: ping_result
+
+- name: Set internet access fact
+  when:
+    - inventory_hostname == 'remote'
+  set_fact:
+    internet_access: "{{ ping_result.rc == 0 }}"
+
+- name: Set internet access fact to false on local host
+  when: inventory_hostname == 'local'
+  set_fact:
+    internet_access: false

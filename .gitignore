@@ -1,0 +1,12 @@
+build
+install
+log
+.vscode
+pointcloud
+*.pyc
+*.dpp
+*.o
+*.d
+*.a
+telerob_deployment/ansible/roles/deployment/files
+telerob_deployment/build

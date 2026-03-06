@@ -1,0 +1,12 @@
+---
+- name: Provision Telerob Jetson
+  hosts: all
+
+  roles:
+    - { role: "setup_deployment_internet", tags: "setup_deployment_internet" }
+    - { role: "system_setup", tags: "system_setup" }
+    - { role: "setup_dds_prerequisites", tags: "setup_dds_prerequisites" }
+    - { role: "system_services", tags: "system_services" }
+    - { role: "cli", tags: "cli" }
+    - { role: "deployment", tags: "deployment" }
+    - { role: "reboot", tags: "reboot" }

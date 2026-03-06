@@ -1,0 +1,3 @@
+services:
+  interface:
+    command: ["ros2", "launch", "interface_bringup", "stub.launch.py"]

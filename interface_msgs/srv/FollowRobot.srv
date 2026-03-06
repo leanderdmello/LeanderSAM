@@ -1,0 +1,7 @@
+uint8 OFF=0
+uint8 POSITION=1
+uint8 POSITION_AND_ORIENTATION=2
+uint8 follow_type 0
+---
+bool success
+string message

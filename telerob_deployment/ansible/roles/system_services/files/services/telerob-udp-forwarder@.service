@@ -1,0 +1,8 @@
+[Unit]
+Description=Telerob UDP Forwarder Service Instance %i
+After=network.target
+
+[Service]
+Type=exec
+ExecStart=bash -c 'socat UDP-RECV:%i UDP-SENDTO:$(cat /var/opt/telerob/static_stream_target.txt)'
+Restart=on-failure

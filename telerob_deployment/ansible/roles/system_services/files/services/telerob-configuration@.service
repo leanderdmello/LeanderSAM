@@ -1,0 +1,7 @@
+[Unit]
+Description=Update Telerob Configuration File from %i if Available
+
+[Service]
+Type=oneshot
+ExecStart=/opt/telerob/system/update-configuration-file.sh /dev/%i
+ExecStartPost=/opt/telerob/system/process-configuration-file.sh

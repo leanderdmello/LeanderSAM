@@ -1,0 +1,106 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: $0 [reload-config|compose <compose-command>]"
+    exit 1
+}
+
+if [ "$#" -lt 1 ]; then
+    usage
+fi
+
+COMMAND="$1"
+shift
+
+TELEROB_ROOT="/opt/telerob"
+
+reload_config() {
+    echo "Reloading Telerob configuration..."
+    sudo ${TELEROB_ROOT}/system/process-configuration-file.sh
+    echo "Configuration reloaded."
+}
+
+compose() {
+    if [ "$#" -lt 1 ]; then
+        echo "Usage: $0 compose <compose-command-and-args>"
+        exit 1
+    fi
+
+
+    local current_deployment_suffix=$(cat ${TELEROB_ROOT}/current)
+    local current_deployment_path="${TELEROB_ROOT}/deployment${current_deployment_suffix}"
+
+    local compose_project_arg="-p ${current_deployment_suffix}"
+
+    local compose_file_args=$(awk -v cdp="${current_deployment_path}" \
+        'BEGIN {RS=" "; ORS=" "} { print "-f " cdp "/" $1 }' \
+        < "${current_deployment_path}/compose_files")
+
+    echo "Executing docker compose command: docker compose ${compose_project_arg} ${compose_file_args} $*"
+
+    docker compose ${compose_project_arg} ${compose_file_args} "$@"
+
+}
+
+enter() {
+    # Start bash session in specified service container (slam or interface)
+
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: $0 enter (slam|interface)"
+        exit 1
+    fi
+
+    local service="$1"
+    local current_deployment_suffix=$(cat ${TELEROB_ROOT}/current)
+
+    local container_name="${current_deployment_suffix}-${service}-1"
+
+    echo "Entering container: ${container_name}"
+    docker exec -it "${container_name}" /bin/bash
+}
+
+rebuild() {
+    # Rebuild code within specified service container (slam or interface, or both when not provided)
+
+    local services=()
+    if [ "$#" -eq 0 ]; then
+        services=("slam" "interface")
+    else
+        services=("$@")
+    fi
+
+    local current_deployment_suffix=$(cat ${TELEROB_ROOT}/current)
+
+    for service in "${services[@]}"; do
+        local container_name="${current_deployment_suffix}-${service}-1"
+
+        # Determine if containers contain source code, and can be rebuilt in the first place
+        if ! docker exec "${container_name}" /bin/bash -c "test -d ~/ws/src"; then
+            echo "Container ${container_name} does not contain source code to rebuild. Skipping."
+            continue
+        fi
+
+        echo "Rebuilding code in container: ${container_name}"
+        docker exec "${container_name}" /bin/bash -c "cd ~/ws && colcon build"
+    done
+
+    compose restart "${services[@]}"
+}
+
+case "${COMMAND}" in
+    reload-config)
+        reload_config
+        ;;
+    compose)
+        compose "$@"
+        ;;
+    enter)
+        enter "$@"
+        ;;
+    rebuild)
+        rebuild "$@"
+        ;;
+    *)
+        usage
+        ;;
+esac

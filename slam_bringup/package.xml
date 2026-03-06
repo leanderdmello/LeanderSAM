@@ -1,0 +1,50 @@
+<package format="3">
+	<name>slam_bringup</name>
+	<version>1.0.0</version>
+	<description>Telerob SLAM and bringup metapackage for 3d SLAM with a robot</description>
+	<maintainer email="j.sijs@avular.com">Joris Sijs</maintainer>
+	<license>Avular EULA</license>
+	<buildtool_depend>cmake_avular</buildtool_depend>
+	<buildtool_depend>ament_cmake</buildtool_depend>
+	<buildtool_depend>ament_cmake_auto</buildtool_depend>
+	<exec_depend>rmw_cyclonedds_cpp</exec_depend>
+
+	<!-- Telerob dependencies -->
+	<exec_depend>slam_manager</exec_depend>
+	<exec_depend>xsens_mti_ros2_driver</exec_depend>
+
+	<!-- Autopilot Common dependencies -->
+	<exec_depend version_eq="3.1.0">launch_avular</exec_depend>
+
+	<!-- Autopilot Navigation dependencies -->
+	<exec_depend version_eq="3.2.0">autopilot_navigation</exec_depend>
+	<exec_depend version_eq="1.0.0">liorf</exec_depend>
+
+	<!-- Autopilot Ordination dependencies -->
+	<exec_depend version_eq="2.5.0">autopilot_ordination</exec_depend>
+	<exec_depend version_eq="2.5.0">lifecycle_manager</exec_depend>
+
+	<!-- Autopilot Perception dependencies -->
+	<exec_depend version_eq="2.5.0">cloud_filters</exec_depend>
+
+	<!-- Origin Bringup dependencies -->
+	<exec_depend>ouster_ros</exec_depend>
+
+	<export>
+		<build_type>ament_cmake</build_type>
+		<debian_depend>autopilot-navigation</debian_depend>
+		<debian_depend>autopilot-ordination</debian_depend>
+		<debian_depend>autopilot-perception</debian_depend>
+		<debian_depend>telerob-slam-manager</debian_depend>
+		<debian_depend>telerob-liorf</debian_depend>
+		<debian_depend>telerob-xsens-mti-ros2-driver</debian_depend>
+		<debian_depend>cloud-filters</debian_depend>
+		<debian_depend>cmake-avular</debian_depend>
+		<debian_depend>launch-avular</debian_depend>
+		<debian_depend>lifecycle-manager</debian_depend>
+		<debian_depend>ouster-ros</debian_depend>
+		<debian_depend>ros-humble-ament-cmake-auto</debian_depend>
+		<debian_depend>ros-humble-ament-cmake</debian_depend>
+		<debian_depend>ros-humble-rmw-cyclonedds-cpp</debian_depend>
+	</export>
+</package>

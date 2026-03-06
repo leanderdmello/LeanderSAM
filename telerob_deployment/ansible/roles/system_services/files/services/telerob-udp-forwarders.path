@@ -1,0 +1,9 @@
+[Unit]
+Description=Update forwarder targets based on static network file
+
+[Path]
+PathChanged=/var/opt/telerob/static_stream_target.txt
+Unit=telerob-udp-forwarders.service
+
+[Install]
+WantedBy=multi-user.target

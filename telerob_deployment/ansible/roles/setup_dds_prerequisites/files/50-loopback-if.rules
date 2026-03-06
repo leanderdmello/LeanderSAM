@@ -1,0 +1,2 @@
+# Enable multicast for the loopback interface
+ACTION=="add", KERNEL=="lo", SUBSYSTEM=="net", RUN+="/sbin/ip link set dev %k multicast on"

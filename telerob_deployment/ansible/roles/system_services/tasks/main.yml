@@ -1,0 +1,217 @@
+- name: Create system scripts directory
+  file:
+    path: "/opt/telerob/system"
+    state: directory
+    mode: "0755"
+    recurse: true
+  become: true
+
+- name: Copy system scripts
+  copy:
+    src: "system/{{ item.script }}"
+    dest: "/opt/telerob/system/{{ item.script }}"
+    mode: "0755"
+  loop:
+    - { script: "apply-update-if-available.sh" }
+    - { script: "configuration-schema.toml" }
+    - { script: "led-manager.py" }
+    - { script: "merge-configuration-files.py" }
+    - { script: "monitor-device-writes.sh" }
+    - { script: "power-error-shutdown.sh" }
+    - { script: "powerkey-shutdown.sh" }
+    - { script: "process-configuration-file.sh" }
+    - { script: "restart-udp-forwarders.sh" }
+    - { script: "update-configuration-file.sh" }
+    - { script: "validate-configuration-file.py" }
+  become: true
+
+- name: Copy systemd service files
+  copy:
+    src: "services/{{ item.service }}"
+    dest: "/etc/systemd/system/{{ item.service }}"
+    mode: 0644
+  loop:
+    - { service: "telerob-configuration@.service" }
+    - { service: "telerob-led-manager@.service" }
+    - { service: "telerob-monitor-device@.service" }
+    - { service: "telerob-power-error-shutdown.service" }
+    - { service: "telerob-powerkey.service" }
+    - { service: "telerob-udp-forwarder@.service" }
+    - { service: "telerob-udp-forwarders.path" }
+    - { service: "telerob-udp-forwarders.service" }
+    - { service: "telerob-updates@.service" }
+
+  become: true
+
+- name: Add (auto)mount for sd card to fstab
+  lineinfile:
+    path: "/etc/fstab"
+    line: "/dev/sda1       /media/avular/sd-card        auto    defaults,nofail,relatime,rw,exec,uid=avular,gid=avular,noauto,x-systemd.automount,x-systemd.idle-timeout=10,x-systemd.device-timeout=3,x-systemd.mount-timeout=10  0       0"
+    regexp: "/dev/sda1.*"
+  become: true
+  register: fstab_automount
+
+- name: Set fact on whether fstab was actually updated (requires reboot)
+  set_fact:
+    fstab_updated: "{{ fstab_automount.changed }}"
+
+- name: Make sure telerob var directory exists and is owned by avular
+  file:
+    path: "/var/opt/telerob"
+    state: directory
+    owner: "avular"
+    group: "avular"
+    mode: "0755"
+    recurse: true
+  become: true
+
+- name: Install default static network configuration file
+  copy:
+    src: "var/static_stream_target.txt"
+    dest: "/var/opt/telerob/static_stream_target.txt"
+    owner: "avular"
+    group: "avular"
+    mode: "0644"
+  become: true
+
+- name: Reload systemd daemon
+  command: systemctl daemon-reload
+  become: true
+
+- name: Install and restart installed systemd units
+  systemd:
+    name: "{{ item.service }}"
+    enabled: yes
+    state: restarted
+  loop:
+    - { service: "telerob-led-manager@update.service" }
+    - { service: "telerob-led-manager@in_use_sd_card.service" }
+    - { service: "telerob-powerkey.service" }
+    - { service: "telerob-power-error-shutdown.service" }
+    - { service: "telerob-udp-forwarders.service" }
+    - { service: "telerob-udp-forwarders.path" }
+  become: true
+
+- name: Create SD card mount point
+  file:
+    state: directory
+    path: "/media/avular/sd-card"
+    owner: "avular"
+    group: "avular"
+    mode: "0755"
+  become: true
+
+- name: Copy udev rules
+  copy:
+    src: "udev/{{ item.rule }}"
+    dest: "/etc/udev/rules.d/{{ item.rule }}"
+    mode: 0644
+  loop:
+    - { rule: "99-telerob-sd-card.rules" }
+    - { rule: "99-uart-imu-config.rules" }
+  become: true
+
+- name: Reload udev rules
+  command: udevadm control --reload-rules
+  become: true
+
+- name: Trigger udev to apply rules to existing devices
+  command: udevadm trigger
+  become: true
+
+- name: Apply Ouster network configuration
+  block:
+    - name: Remove old Ouster configuration files
+      file:
+        path: "{{ item }}"
+        state: absent
+      become: true
+      loop:
+        - /etc/udev/rules.d/99-ouster-net.rules
+        - /opt/telerob/system/ouster-network-configuration.sh
+        - /etc/systemd/system/telerob-ouster-network-config@.service
+    - name: Copy new Ouster configuration files
+      copy:
+        src: "net/{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "ouster.nmconnection"
+          dest: "/etc/NetworkManager/system-connections/ouster.nmconnection"
+          mode: "0600"
+        - src: "10-ouster.link"
+          dest: "/etc/systemd/network/10-ouster.link"
+          mode: "0644"
+      become: true
+    - name: Check if ouster0 interface exists
+      stat:
+        path: /sys/class/net/ouster0
+      register: ouster0_interface
+      become: true
+    - name: Check if ouster interface is active in NetworkManager
+      shell: nmcli -t -f DEVICE c s  --active | grep ouster0
+      register: ouster_nmcli_check
+      ignore_errors: true
+      become: true
+
+    - name: Rename eth0 to ouster0
+      when: not ouster0_interface.stat.exists
+      shell: |
+        nmcli device set eth0 managed no
+        ip link set eth0 down
+        udevadm control --reload-rules
+        udevadm control --reload
+        udevadm trigger --action=add /sys/class/net/eth0
+      become: true
+    - name: Wait for ouster0 to appear
+      wait_for:
+        path: /sys/class/net/ouster0
+        state: present
+        timeout: 30
+      become: true
+    - name: Set ouster0 to be managed by NetworkManager and bring it up
+      when: ouster_nmcli_check.rc != 0
+      shell: |
+        nmcli connection reload
+        nmcli device set ouster0 managed yes
+        nmcli connection up ouster
+      become: true
+    - name: Wait for Ouster network configuration to be applied
+      wait_for:
+        host: 192.168.100.13
+        port: 7501
+        timeout: 30
+      become: true
+
+- name: Set default lidar state to standby
+  shell: >-
+    echo -e "set_config_param operating_mode STANDBY\nreinitialize\nsave_config_params\n"
+    | nc -q 5 192.168.100.13 7501
+  become: true
+
+- name: Set up fan controller to open-loop due to lack of tachometer feedback
+  block:
+    - name: Stop fan control service
+      service:
+        name: nvfancontrol.service
+        state: stopped
+      become: true
+      ignore_errors: true
+    - name: Set fan control to open loop
+      lineinfile:
+        path: /etc/nvfancontrol.conf
+        regexp: "(.*)FAN_DEFAULT_CONTROL.*"
+        line: '\1FAN_DEFAULT_CONTROL open_loop'
+        backrefs: true
+      become: true
+    - name: Remove fan control service status file
+      file:
+        path: /var/lib/nvfancontrol/status
+        state: absent
+      become: true
+    - name: Restart fan control service
+      service:
+        name: nvfancontrol.service
+        state: started
+      become: true
+      ignore_errors: true

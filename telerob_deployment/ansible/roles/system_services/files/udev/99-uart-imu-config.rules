@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyTHS1", RUN+="stty -F /dev/%k -crtscts"

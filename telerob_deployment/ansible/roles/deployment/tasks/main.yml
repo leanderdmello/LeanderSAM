@@ -1,0 +1,274 @@
+- name: Make sure telerob deployment directory exists
+  file:
+    path: "{{ telerob_dir }}"
+    state: directory
+    mode: "0755"
+    recurse: true
+  become: true
+
+- name: Make sure internal_storage directory exists and is owned by avular
+  file:
+    path: "/home/avular/internal_storage"
+    state: directory
+    owner: "avular"
+    group: "avular"
+    mode: "0755"
+    recurse: true
+  become: true
+
+- name: Copy SLAM healthcheck into internal_storage
+  copy:
+    src: "slam_healthcheck.py"
+    dest: "/home/avular/internal_storage/slam_healthcheck.py"
+    owner: "avular"
+    group: "avular"
+    mode: "0755"
+  become: true
+
+- name: Check whether current deployment marker file exists
+  stat:
+    path: "{{ telerob_dir }}/current"
+  register: current_marker_file
+
+- name: Slurp current deployment marker file if it exists
+  slurp:
+    src: "{{ telerob_dir }}/current"
+  register: current_marker_file_content
+  when: current_marker_file.stat.exists
+
+- name: Set current deployment suffix from marker file
+  set_fact:
+    current_deployment_suffix: "{{ current_marker_file_content.content | b64decode | trim }}"
+  when: current_marker_file.stat.exists
+
+- name: Set current deployment suffix to empty if no marker file
+  set_fact:
+    current_deployment_suffix: ""
+  when: not current_marker_file.stat.exists
+
+- name: Generate random suffix for new deployment directory
+  command: 'bash -c "tr -dc ''a-z'' < /dev/urandom | head -c8"'
+  register: random_suffix_result
+  changed_when: false
+
+- name: Set new deployment suffix fact
+  set_fact:
+    new_deployment_suffix: "{{ random_suffix_result.stdout }}"
+
+- name: Check whether compose-files definition file exists for current deployment
+  stat:
+    path: "{{ telerob_dir }}/deployment{{ current_deployment_suffix }}/compose_files"
+  register: current_compose_files_def_file
+  when: current_deployment_suffix != ''
+
+- name: If compose-files definition does not exist, register default compose-file arguments
+  set_fact:
+    current_compose_file_args: "-f {{ telerob_dir }}/deployment{{ current_deployment_suffix }}/compose/docker-compose.yaml"
+  when:
+    - current_deployment_suffix != ''
+    - not current_compose_files_def_file.stat.exists
+
+- name: Get compose-file arguments for current deployment
+  shell: >
+    awk 'BEGIN {RS=" "; ORS=" "} { print "-f {{ telerob_dir }}/deployment{{ current_deployment_suffix }}/"$1 }'
+    < {{ telerob_dir }}/deployment{{ current_deployment_suffix }}/compose_files
+  register: current_compose_file_args_cmd
+  when:
+    - current_deployment_suffix != ''
+    - current_compose_files_def_file.stat.exists
+
+- name: Register compose file-arguments for current deployment
+  set_fact:
+    current_compose_file_args: "{{ current_compose_file_args_cmd.stdout }}"
+  when:
+    - current_deployment_suffix != ''
+    - current_compose_files_def_file.stat.exists
+
+- name: Install deployment
+  block:
+    - name: Register current docker images on remote host
+      when:
+        - current_deployment_suffix != ''
+      shell:
+        cmd: "docker image inspect --platform linux/arm64 $(docker compose -p {{ current_deployment_suffix }} {{ current_compose_file_args }} config --images) | jq -r '.[] | [.Id, .RepoTags[]] | @csv'"
+        executable: "/bin/bash"
+      become: true
+      register: current_docker_images_cmd
+
+    - name: Push docker images to remote
+      when: inventory_hostname == 'remote'
+      block:
+        - name: Create temporary working directory
+          tempfile:
+            state: directory
+          register: temp_working_dir
+          become: true
+
+        - name: Copy stored docker images to working directory
+          copy:
+            src: "build/docker.imgs"
+            dest: "{{ temp_working_dir.path }}/docker.imgs"
+          become: true
+
+        - name: Load docker images from working directory
+          command: "docker load -i {{ temp_working_dir.path }}/docker.imgs"
+          become: true
+
+        - name: Remove temporary working directory
+          file:
+            path: "{{ temp_working_dir.path }}"
+            state: absent
+          become: true
+
+    - name: Load docker images locally
+      when: inventory_hostname == 'local'
+      command: "docker load -i {{ role_path }}/files/build/docker.imgs"
+      become: true
+
+    - name: Create new deployment directory
+      file:
+        path: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}"
+        state: directory
+        mode: "0755"
+        recurse: true
+      become: true
+
+    - name: Copy deployment files to target location
+      unarchive:
+        src: "build/deployment_files.tar"
+        dest: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}"
+      become: true
+
+    - name: Copy versions file to new deployment directory
+      copy:
+        src: "build/versions.txt"
+        dest: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}/config/versions.txt"
+      become: true
+
+    - name: Copy compose env file to new deployment directory
+      copy:
+        src: "build/.env"
+        dest: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}/compose/.env"
+      become: true
+
+    - name: Copy compose files definition to new deployment directory
+      copy:
+        src: "build/compose_files"
+        dest: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}/compose_files"
+      become: true
+
+    - name: Get compose-file arguments for new deployment
+      shell: >
+        awk 'BEGIN {RS=" "; ORS=" "} { print "-f {{ telerob_dir }}/deployment{{ new_deployment_suffix }}/"$1 }'
+        < {{ telerob_dir }}/deployment{{ new_deployment_suffix }}/compose_files
+      register: new_compose_file_args
+
+    - name: Register compose file-arguments for new deployment
+      set_fact:
+        new_compose_file_args: "{{ new_compose_file_args.stdout }}"
+
+    - name: Run pre-deployment script
+      command: bash scripts/pre_deployment.sh "{{ new_deployment_suffix }}"
+      args:
+        chdir: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}"
+      become: true
+
+    - name: Stop the current deployment if it exists
+      shell: "docker compose -p {{ current_deployment_suffix }} {{ current_compose_file_args }} stop --timeout 0"
+      become: true
+      when: current_deployment_suffix != ''
+    - name: Wait for current deployment to have stopped
+      shell: "docker compose -p {{ current_deployment_suffix }} {{ current_compose_file_args }} ps -q | xargs -r docker wait"
+      become: true
+      when: current_deployment_suffix != ''
+
+    - name: Start the new deployment
+      shell: "docker compose -p {{ new_deployment_suffix }} {{ new_compose_file_args }} up -d --wait --wait-timeout 180"
+      become: true
+
+    - name: Down the current deployment directory if it exists
+      shell: "docker compose -p {{ current_deployment_suffix }} {{ current_compose_file_args }} down"
+      become: true
+      when: current_deployment_suffix != ''
+
+    - name: Remove current deployment directory if it exists
+      file:
+        path: "{{ telerob_dir }}/deployment{{ current_deployment_suffix }}"
+        state: absent
+      become: true
+      when: current_deployment_suffix != ''
+
+    - name: Update current deployment marker file
+      copy:
+        content: "{{ new_deployment_suffix }}"
+        dest: "{{ telerob_dir }}/current"
+      become: true
+
+    - name: Run post-deployment script
+      command: bash scripts/post_deployment.sh
+      args:
+        chdir: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}"
+      become: true
+
+    # Set deployment state wrt current powersave setting
+    - name: Restart powerkey service to enter power saving mode if needed
+      command: "systemctl restart telerob-powerkey.service"
+      become: true
+
+  rescue:
+    - name: Check for existence of update directory on SD card for saving logs
+      stat:
+        path: "/media/avular/sd-card/update"
+      register: sd_card_update_dir
+    - name: Save new deployment logs to sd card for debugging in case of failure
+      when:
+        - sd_card_update_dir.stat.exists
+        - sd_card_update_dir.stat.isdir
+        - new_compose_file_args is defined
+      shell: >
+        docker compose -p {{ new_deployment_suffix }} {{ new_compose_file_args }} logs --no-color >
+        /media/avular/sd-card/update/deployment{{ new_deployment_suffix }}.log
+      become: true
+      ignore_errors: true
+
+    - name: Down the new deployment in case of failure
+      when: new_compose_file_args is defined
+      shell: "docker compose -p {{ new_deployment_suffix }} {{ new_compose_file_args }} down"
+      become: true
+      ignore_errors: true
+
+    - name: Remove new deployment directory in case of failure
+      file:
+        path: "{{ telerob_dir }}/deployment{{ new_deployment_suffix }}"
+        state: absent
+      become: true
+      ignore_errors: true
+
+    # Reset deployment state wrt current powersave setting
+    - name: Restart the current deployment, respecting power-save state, in case of failure
+      command: "systemctl restart telerob-powerkey.service"
+      become: true
+      when: current_deployment_suffix != ''
+
+    - name: Restore current image tags in case of failure
+      when: current_deployment_suffix != ''
+      shell: echo '{{ item }}' | xargs -I % bash -c 'echo % | tr "," " " | xargs docker image tag'
+      loop: "{{ current_docker_images_cmd.stdout_lines }}"
+      become: true
+
+    - name: Fail the deployment task
+      fail:
+        msg: "Deployment failed. Rolled back to previous deployment."
+
+  always:
+    - name: Prune unused Docker images
+      command: "docker image prune -f"
+      become: true
+
+    - name: Clean up temporary working directory
+      when: inventory_hostname == 'remote'
+      file:
+        path: "{{ temp_working_dir.path }}"
+        state: absent
+      become: true
+      ignore_errors: true

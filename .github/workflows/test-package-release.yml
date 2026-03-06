@@ -1,0 +1,179 @@
+name: test-package-release
+
+on:
+    workflow_call:
+        inputs:
+            version:
+                description: "version tag to use for release"
+                type: string
+                required: true
+            environment:
+                description: "environment to use for the release"
+                type: string
+                required: true
+            versioning-build-type:
+                description: "versioning build type to use for the release"
+                type: string
+                required: true
+            prerelease:
+                description: "whether to mark the release as prerelease"
+                type: boolean
+                required: false
+                default: true
+
+jobs:
+    build-test-package-ws:
+        uses: avular-robotics/avular_ci/.github/workflows/build.yml@main
+        secrets: inherit
+        strategy:
+            fail-fast: true
+            matrix:
+                include:
+                    - arch: amd64
+                      runner: large-linux
+                    - arch: arm64
+                      runner: arm64-linux
+        with:
+            runner: ${{ matrix.runner }}
+            versioning-build-type: ${{ inputs['versioning-build-type'] }}
+            cmake-build-type: "RelWithDebInfo"
+            environment: ${{ inputs.environment }}
+            build-workers: 2
+            repositories: avular-robotics/telerob
+            refs: ${{ github.head_ref || github.ref_name }}
+            postgres: false
+            test: true
+            publish-test-report: true
+            package: true
+            package-extern: false
+            upload-packages: true
+            artifact-name-build-info: build-info-${{ inputs['environment'] }}-${{ matrix.arch }}
+            artifact-name-test-report: test-report-${{ inputs['environment'] }}-${{ matrix.arch }}
+            artifact-name-packages: ${{ github.event.repository.name }}-${{ inputs['environment'] }}-${{ matrix.arch }}
+            test-report-path: /test-report/${{ inputs['environment'] }}/${{ matrix.arch }}
+            package-prefix: telerob-
+
+    build-images:
+        uses: avular-robotics/avular_ci/.github/workflows/build-image.yml@main
+        needs: [build-test-package-ws]
+        secrets: inherit
+        strategy:
+            fail-fast: false
+            matrix:
+                dockerfile: [development, release]
+                devenv: [slam, interface]
+                include:
+                    - dockerfile: development
+                      postfix: "-dev"
+                    - dockerfile: release
+                      postfix: ""
+                    - devenv: slam
+                      image-base-name: slam-bringup
+                    - devenv: interface
+                      image-base-name: interface
+
+        with:
+            branch: ${{ github.head_ref || github.ref_name }}
+            environment: ${{ inputs.environment }}
+            context: "."
+            image: "telerob-${{ matrix.image-base-name }}${{ matrix.postfix }}"
+            dockerfile: "docker/${{ matrix.dockerfile }}.Dockerfile"
+            push: true
+            docker_build_args: |
+                VARIANT=latest-${{ inputs.environment }}
+                PACKAGES_FROM_DEVENV=${{ matrix.devenv }}
+                BUILD_CONTEXT=true
+                FEED_TYPE=${{ inputs.environment }}
+            push-to-azure: false
+            azure_registry: ${{ vars.AZ_REGISTRY }}
+            azure_registry_user: ${{ vars.AZ_REGISTRY_USERNAME }}
+            tag: ${{ inputs.version }}
+
+    build-deployment-package:
+        runs-on: [self-hosted, medium-linux]
+        container:
+            image: ghcr.io/avular-robotics/ros-humble-dev:latest
+        needs: [build-images]
+        env:
+            GH_TOKEN: ${{ secrets.CI_ACCESS_TOKEN }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.head_ref || github.ref_name }}
+                  fetch-depth: 0
+            - name: Setup docker in docker
+              uses: docker/setup-buildx-action@v3
+
+            - name: setup Qemu
+              uses: docker/setup-qemu-action@v3
+              with:
+                  image: tonistiigi/binfmt:qemu-v7.0.0-28
+
+            - name: Login to Github Container Registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.repository_owner }}
+                  password: ${{ secrets.CI_ACCESS_TOKEN }}
+
+            - name: Install make dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y make tar gzip jq
+
+            - name: Create deployment package
+              id: create-deployment-package
+              working-directory: telerob_deployment
+              env:
+                  SLAM_BRINGUP_VERSION: ${{ inputs.version }}
+                  INTERFACE_VERSION: ${{ inputs.version }}
+              run: |
+                  make pull pull-development archive archive-development
+
+            - name: Write flash archive version string to environment
+              id: write-commit-hash
+              shell: bash
+              run: |
+                  if [ "${{ inputs.version }}" = "nightly" ]; then
+                      echo "version=nightly_$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+                  else
+                      echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Split and rename archive to reflect current git commit
+              working-directory: telerob_deployment
+              env:
+                  VERSION_STRING: ${{ steps.write-commit-hash.outputs.version }}
+              run: |
+                  split -b 1G build/telerob_flash_archive.prod.tar.gz build/telerob_flash_archive_${VERSION_STRING}_arm64.tar.gz.part-
+                  split -b 1G build/telerob_flash_archive.dev.tar.gz build/telerob_flash_archive_dev_${VERSION_STRING}_arm64.tar.gz.part-
+
+            - name: Upload deployment package artifact
+              uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+              with:
+                  name: ${{ github.event.repository.name }}-deployment-packages-${{ steps.write-commit-hash.outputs.version }}-arm64
+                  path: "telerob_deployment/build/telerob_flash_archive_*_arm64.tar.gz.*"
+
+            - uses: avular-robotics/avular_ci/actions/install-gh-cli@main
+            - name: Create Release
+              id: create-release
+              shell: bash
+              run: |
+                  comment="## Release Pages\n"
+
+                  echo "Deleting old release for avular-robotics/telerob"
+                  gh release delete --repo avular-robotics/telerob --cleanup-tag -y ${{ inputs.version }} || true
+
+                  artifacts=$(find telerob_deployment/build -name '*.tar.gz.*' 2>/dev/null || echo "")
+                  echo "Creating ${{ inputs.version }} release for avular-robotics/telerob..."
+                  gh release create "${{ inputs.version }}" \
+                    --repo "avular-robotics/telerob" \
+                    --title "${{ inputs.version }}" \
+                    --target "${{ github.head_ref || github.ref_name }}" \
+                    --generate-notes \
+                    ${{ inputs.prerelease && '--prerelease' || ''  }} \
+                    $artifacts 1> release_url.txt
+
+                  echo "Release URL for avular-robotics/telerob: $(cat release_url.txt)"
+                  echo "Uploaded artifacts: $artifacts"

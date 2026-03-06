@@ -1,0 +1,32 @@
+[network]
+address = "192.168.16.1/24"
+gateway = "192.168.16.10"
+
+[power]
+save_on_hold = false
+
+[stream]
+framerate = 25
+pipeline = """>
+        appsrc name=appsrc is-live=true block=true format=time
+        caps=video/x-raw,format=RGB,width={width},height={height},framerate={fps}/1 !
+        videoconvert !
+        x264enc tune=zerolatency bitrate={bitrate} speed-preset=ultrafast intra-refresh=true
+        sliced-threads=true byte-stream=true vbv-buf-capacity={bitrate_div_fps} bframes=0
+        b-adapt=0 ref=1 key-int-max={fps} !
+        video/x-h264, profile=baseline !
+        rtph264pay pt=96 !
+        udpsink host=127.0.0.1 port={port}"""
+
+[stream.highres]
+width = 960
+height = 720
+bitrate = 2500
+
+[stream.lowres]
+width = 640
+height = 480
+bitrate = 1500
+
+[slam]
+imu = "lidar"

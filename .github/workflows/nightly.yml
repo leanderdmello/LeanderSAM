@@ -1,0 +1,19 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test-package-release:
+    uses: ./.github/workflows/test-package-release.yml
+    with:
+      version: nightly
+      environment: nightly
+      versioning-build-type: nightly
+      prerelease: true
+    secrets: inherit

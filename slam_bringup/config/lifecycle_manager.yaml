@@ -1,0 +1,3 @@
+lifecycle_manager:
+  ros__parameters:
+    time_out: 20 # [s] Maximum amount of time a transition is allowed to take

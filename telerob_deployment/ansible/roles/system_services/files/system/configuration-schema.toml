@@ -1,0 +1,99 @@
+# Configuration validation schema for Telerob deployment
+#
+# This file defines the required fields and their types for configuration validation.
+# To add/remove/modify required fields, edit this file.
+#
+# Format:
+# [field.path]
+# type = "str" | "int" | "float" | "bool"
+# required = true | false
+# non_empty = true | false  # Only applies to string fields
+#
+# Examples:
+# - network.address refers to config["network"]["address"]
+# - stream.framerate refers to config["stream"]["framerate"]
+
+["network.address"]
+type = "str"
+required = true
+non_empty = true
+# Description: Network IP address with CIDR notation (e.g., "192.168.16.1/24")
+# Used by: process-configuration-file.sh for network configuration
+
+["network.gateway"]
+type = "str"
+required = true
+non_empty = true
+# Description: Network gateway IP address
+# Used by: process-configuration-file.sh for network configuration
+
+["power.save_on_hold"]
+type = "bool"
+required = false
+# Description: whether holding the powersave button down should enable powersave or not
+# Used by: powerkey-shutdown.sh for determining powersave behavior. Default is false
+
+["stream.framerate"]
+type = "int"
+required = false
+# Description: stream framerate
+# Used by: rtp_node.yaml.j2 and map_visualizer.yaml.j2 template files for node configuration. Default is 25
+
+["stream.highres.width"]
+type = "int"
+required = false
+# Description: highres stream width
+# Used by: rtp_node.yaml.j2 and map_visualizer.yaml.j2 template files for node configuration. Default is 960
+
+["stream.highres.height"]
+type = "int"
+required = false
+# Description: highres stream height
+# Used by: rtp_node.yaml.j2 and map_visualizer.yaml.j2 template files for node configuration. Default is 720
+
+["stream.highres.bitrate"]
+type = "int"
+required = false
+# Description: highres stream bitrate in kbps
+# Used by: rtp_node.yaml.j2 template file for node configuration. Default is 2500
+
+["stream.lowres.width"]
+type = "int"
+required = false
+# Description: lowres stream width
+# Used by: rtp_node.yaml.j2 and map_visualizer.yaml.j2 template files for node configuration. Default is 640
+
+["stream.lowres.height"]
+type = "int"
+required = false
+# Description: lowres stream height
+# Used by: rtp_node.yaml.j2 and map_visualizer.yaml.j2 template files for node configuration. Default is 480
+
+["stream.lowres.bitrate"]
+type = "int"
+required = false
+# Description: lowres stream bitrate in kbps
+# Used by: rtp_node.yaml.j2 template file for node configuration. Default is 1500
+
+["slam.imu"]
+type = "str"
+required = false
+non_empty = false
+# Description: IMU selection for SLAM algorithm. Valid options are "lidar" and "xsens"
+# Used by: lio_sam_ouster.yaml.j2 template for liorf node configuration. Default is "lidar"
+
+["stream.pipeline"]
+type = "str"
+required = false
+non_empty = false
+# Description: Gstreamer pipeline description for RTP streaming
+# Used by: rtp_node.yaml.j2 template for rtp_streaming_node configuration. Default is """>
+#        appsrc name=appsrc is-live=true block=true format=time
+#        caps=video/x-raw,format=RGB,width={width},height={height},framerate={fps}/1 !
+#        videoconvert !
+#        x264enc tune=zerolatency bitrate={bitrate} speed-preset=ultrafast intra-refresh=true
+#        sliced-threads=true byte-stream=true vbv-buf-capacity={bitrate_div_fps} bframes=0
+#        b-adapt=0 ref=1 key-int-max={fps} !
+#        video/x-h264, profile=baseline !
+#        rtph264pay pt=96 !
+#        udpsink host=127.0.0.1 port={port}"""

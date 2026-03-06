@@ -1,0 +1,12 @@
+[Unit]
+Description=Telerob LED Manager Services
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'test -f /var/opt/telerob/led-manager-%i.signal || echo 0 > /var/opt/telerob/led-manager-%i.signal'
+ExecStart=/usr/bin/python3 -u /opt/telerob/system/led-manager.py %i
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+/**:
+  ros__parameters:
+    # Low resolution rendering mode (480p 4:3)
+    lowres_frame_width: {{ stream.lowres.width | default(640) }}
+    lowres_frame_height: {{ stream.lowres.height | default(480) }}
+
+    # High resolution rendering mode (720p 4:3)
+    highres_frame_width: {{ stream.highres.width | default(960) }}
+    highres_frame_height: {{ stream.highres.height | default(720) }}

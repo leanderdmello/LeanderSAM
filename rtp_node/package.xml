@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rtp_node</name>
+  <version>1.0.0</version>
+  <description>rtp_node is a simple rtp video stream that takes raw rgb data and streams it over a
+    specified port on its local network. the stream is h264 encoded.</description>
+  <maintainer email="j.verheesen@avular.com">jarno</maintainer>
+  <license>Avular</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>cmake_avular</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>interface_msgs</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>interface_msgs</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+
+    <debian_depend>cmake-avular</debian_depend>
+    <debian_depend>libgstreamer1.0-0</debian_depend>
+    <debian_depend>gstreamer1.0-plugins-base</debian_depend>
+    <debian_depend>gstreamer1.0-plugins-good</debian_depend>
+    <debian_depend>gstreamer1.0-plugins-bad</debian_depend>
+    <debian_depend>gstreamer1.0-plugins-ugly</debian_depend>
+    <debian_depend>libgstreamer1.0-dev</debian_depend>
+    <debian_depend>libgstreamer-plugins-base1.0-dev</debian_depend>
+    <debian_depend>libgstreamer-plugins-bad1.0-dev</debian_depend>
+  </export>
+</package>

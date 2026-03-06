@@ -1,0 +1,24 @@
+/**/slam_manager:
+  ros__parameters:
+    timeout_threshold: 10.0 # [s] Time threshold for calling the lifecycle manager to switch states
+    topics:
+      out:
+        slam_mode: "slam_mode" # [slam_manager_msgs::SlamMode] Topic on which the current slam mode is published (latching)
+    services:
+      server:
+        set_slam_mode: "set_slam_mode" # [slam_manager_msgs::SetSlamService] Service that can be called to switch the slam mode between [idle, mapping, localization]
+      client:
+        set_state: "set_state" # [autonomy_msgs::SetState] Service that is called for setting a specific lifecycle state
+    # State configurations
+    # transitions_to describes which other states are accepted
+    # transitions to `none` and `previous` are always accepted
+    states:
+      # Idle mode, i.e., only base nodes
+      idle:
+        transitions_to: ["mapping", "localization"]
+      # Mapping mode, i.e., only nodes required for Lidar based SLAM
+      mapping:
+        transitions_to: ["idle"]
+      # Localization mode, i.e., only nodes required for Lidar based localization
+      localization:
+        transitions_to: ["idle"]

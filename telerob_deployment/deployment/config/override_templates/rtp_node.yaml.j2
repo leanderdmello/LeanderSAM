@@ -1,0 +1,25 @@
+/**:
+  ros__parameters:
+    # Low resolution rendering mode (480p 4:3)
+    lowres_frame_width: {{ stream.lowres.width | default(640) }}
+    lowres_frame_height: {{ stream.lowres.height | default(480) }}
+    lowres_bitrate: {{ stream.lowres.bitrate | default(1500) }}
+
+    # High resolution rendering mode (720p 4:3)
+    highres_frame_width: {{ stream.highres.width | default(960) }}
+    highres_frame_height: {{ stream.highres.height | default(720) }}
+    highres_bitrate: {{ stream.highres.bitrate | default(2500) }}
+
+    # Maximum number of frames streamed per second
+    frames_per_second: {{ stream.framerate | default(25) }}
+
+    pipeline: {{ stream.pipeline | default(""">
+      appsrc name=appsrc is-live=true block=true format=time
+      caps=video/x-raw,format=RGB,width={width},height={height},framerate={fps}/1 !
+      videoconvert !
+      x264enc tune=zerolatency bitrate={bitrate} speed-preset=ultrafast intra-refresh=true
+      sliced-threads=true byte-stream=true vbv-buf-capacity={bitrate_div_fps} bframes=0
+      b-adapt=0 ref=1 key-int-max={fps} !
+      video/x-h264, profile=baseline !
+      rtph264pay pt=96 !
+      udpsink host=127.0.0.1 port={port}""") }}

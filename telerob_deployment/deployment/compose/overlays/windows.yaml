@@ -1,0 +1,9 @@
+services:
+  relay:
+    image: alpine/socat:latest
+    network_mode: "host"
+    command:
+      [
+        "UDP-LISTEN:5000,bind=localhost,fork",
+        "UDP-SEND:host.docker.internal:5000",
+      ]

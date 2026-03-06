@@ -1,0 +1,33 @@
+<package format="3">
+    <name>interface_bringup</name>
+    <version>1.0.0</version>
+    <description>Telerob interface bringup metapackage for all nodes related to map visualization
+        and outside interfaces</description>
+    <maintainer email="n.rood@avular.com">Niels Rood</maintainer>
+    <license>Avular EULA</license>
+
+    <buildtool_depend>cmake_avular</buildtool_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+    <exec_depend>launch_avular</exec_depend>
+    <exec_depend>rtp_node</exec_depend>
+    <exec_depend>control_command_adapter</exec_depend>
+    <exec_depend>stub_node</exec_depend>
+    <exec_depend>map_manager</exec_depend>
+    <exec_depend>map_visualizer</exec_depend>
+    <exec_depend>network_manager</exec_depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+
+        <debian_depend>cmake-avular</debian_depend>
+        <debian_depend>launch-avular</debian_depend>
+        <debian_depend>telerob-rtp-node</debian_depend>
+        <debian_depend>telerob-control-command-adapter</debian_depend>
+        <debian_depend>telerob-stub-node</debian_depend>
+        <debian_depend>telerob-map-manager</debian_depend>
+        <debian_depend>telerob-map-visualizer</debian_depend>
+        <debian_depend>telerob-network-manager</debian_depend>
+    </export>
+</package>

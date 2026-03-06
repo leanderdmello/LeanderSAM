@@ -1,0 +1,15 @@
+services:
+  slam:
+    image: "ghcr.io/avular-robotics/telerob-slam-bringup-dev:${SLAM_BRINGUP_VERSION:-nightly}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bash -c "source /home/avular/ws/install/setup.bash && /home/avular/internal_storage/slam_healthcheck.py"',
+        ]
+      interval: 5s
+      timeout: 30s
+      retries: 20
+
+  interface:
+    image: "ghcr.io/avular-robotics/telerob-interface-dev:${INTERFACE_VERSION:-nightly}"

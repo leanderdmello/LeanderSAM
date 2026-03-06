@@ -1,0 +1,14 @@
+[Unit]
+Description=Shutdown on gpio-keys KEY_POWER press
+After=multi-user.target
+
+[Service]
+ExecStart=/opt/telerob/system/powerkey-shutdown.sh
+ExecReload=/bin/kill -SIGUSR1 $MAINPID
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

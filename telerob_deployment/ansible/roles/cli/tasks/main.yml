@@ -1,0 +1,13 @@
+- name: Install Telerob CLI tool file
+  copy:
+    src: "telerob"
+    dest: "/usr/local/bin/telerob"
+    mode: "0755"
+  become: true
+
+- name: Install Telerob CLI completion script
+  copy:
+    src: "telerob-completion.bash"
+    dest: "/etc/bash_completion.d/telerob"
+    mode: "0644"
+  become: true

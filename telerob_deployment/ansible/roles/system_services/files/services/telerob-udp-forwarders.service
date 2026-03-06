@@ -1,0 +1,10 @@
+[Unit]
+Description=Telerob UDP Forwarder Services
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/telerob/system/restart-udp-forwarders.sh
+
+[Install]
+WantedBy=multi-user.target

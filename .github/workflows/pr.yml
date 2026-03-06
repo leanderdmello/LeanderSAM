@@ -1,0 +1,41 @@
+name: pr
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened, ready_for_review]
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    build-ws:
+        uses: avular-robotics/avular_ci/.github/workflows/build.yml@main
+        secrets: inherit
+        with:
+            runner: arm64-linux
+            versioning-build-type: develop
+            cmake-build-type: Debug
+            environment: unstable
+            repositories: avular-robotics/telerob
+            refs: ${{ github.head_ref || github.ref_name }}
+            postgres: false
+            test: true
+            publish-test-report: true
+            package: false
+            upload-packages: false
+            artifact-name-build-info: build-info
+            artifact-name-test-report: test-report
+            test-report-path: /test-report/pr/${{ github.event.pull_request.number }}/test-report
+            package-prefix: telerob-
+
+    comment:
+        uses: avular-robotics/avular_ci/.github/workflows/comment.yml@latest
+        needs: [build-ws]
+        if: ${{ always() && !cancelled() }}
+        secrets: inherit
+        with:
+            test-report-artifact-pattern: test-report-*
+            test-report-name: testreport.xml
+            test-report-path: /pr/${{ github.event.pull_request.number }}/test-report

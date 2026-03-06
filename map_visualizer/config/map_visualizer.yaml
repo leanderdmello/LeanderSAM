@@ -1,0 +1,12 @@
+map_visualizer:
+  ros__parameters:
+    # Low resolution rendering mode (480p 4:3)
+    lowres_frame_width: 640
+    lowres_frame_height: 480
+
+    # High resolution rendering mode (720p 4:3)
+    highres_frame_width: 960
+    highres_frame_height: 720
+
+    # export path
+    sd_card_storage_path: "/home/avular/external_storage/sd-card"

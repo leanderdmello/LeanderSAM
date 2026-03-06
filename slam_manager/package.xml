@@ -1,0 +1,30 @@
+<package format="3">
+	<name>slam_manager</name>
+	<version>1.0.0</version>
+	<description>Manager for switching between mapping and localization modes.</description>
+	<maintainer email="info@avular.com">Avular Robotics</maintainer>
+	<license>Avular Holding B.V.</license>
+	<buildtool_depend>cmake_avular</buildtool_depend>
+	<buildtool_depend>ament_cmake</buildtool_depend>
+	<depend>fmt</depend>
+	<depend>rclcpp</depend>
+	<depend>rclcpp_avular</depend>
+	<depend>std_msgs</depend>
+	<depend>autonomy_msgs</depend>
+	<depend>slam_manager_msgs</depend>
+
+	<test_depend>rclcpp_mocks</test_depend>
+
+	<export>
+		<build_type>ament_cmake</build_type>
+		<debian_depend>cmake-avular</debian_depend>
+		<debian_depend>libfmt-dev</debian_depend>
+		<debian_depend>autonomy-msgs</debian_depend>
+		<debian_depend>telerob-slam-manager-msgs</debian_depend>
+		<debian_depend>rclcpp-avular</debian_depend>
+		<debian_depend>rclcpp-mocks</debian_depend>
+		<debian_depend>ros-humble-ament-cmake</debian_depend>
+		<debian_depend>ros-humble-geometry-msgs</debian_depend>
+		<debian_depend>ros-humble-rclcpp</debian_depend>
+	</export>
+</package>

@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+    <name>liorf</name>
+    <version>1.0.0</version>
+    <description>Lidar Odometry</description>
+    <maintainer email="m.ijsseldijk@avular.com">Max van IJsseldijk</maintainer>
+    <license>Avular EULA</license>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <buildtool_depend>rosidl_default_generators</buildtool_depend>
+    <buildtool_depend>cmake_avular</buildtool_depend>
+
+    <depend>rclcpp</depend>
+    <depend>rclpy</depend>
+    <depend>std_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>tf2_geometry_msgs</depend>
+    <depend>tf2_sensor_msgs</depend>
+    <depend>visualization_msgs</depend>
+    <depend>pcl_msgs</depend>
+    <depend>tf2_eigen</depend>
+    <depend>tf2_ros</depend>
+    <depend>tf2</depend>
+    <depend>OpenCV</depend>
+    <depend>PCL</depend>
+    <depend>gtsam</depend>
+    <depend>Eigen</depend>
+    <depend>pcl_conversions</depend>
+    <depend>cv_bridge</depend>
+    <depend>Boost</depend>
+    <depend>geographiclib</depend>
+    <depend>rclcpp-avular</depend>
+    <depend>autonomy_msgs</depend>
+    <depend>interface_msgs</depend>
+
+    <test_depend>ament_lint_auto</test_depend>
+    <test_depend>ament_lint_common</test_depend>
+    <member_of_group>rosidl_interface_packages</member_of_group>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+      <debian_depend>ament-copyright-avular</debian_depend>
+      <debian_depend>cmake-avular</debian_depend>
+      <debian_depend>rclcpp-avular</debian_depend>
+      <debian_depend>autonomy-msgs</debian_depend>
+      <debian_depend>rclpy-avular</debian_depend>
+      <debian_depend>ros-humble-ament-cmake</debian_depend>
+      <debian_depend>ros-humble-std-msgs</debian_depend>
+      <debian_depend>ros-humble-sensor-msgs</debian_depend>
+      <debian_depend>ros-humble-nav-msgs</debian_depend>
+      <debian_depend>ros-humble-geometry-msgs</debian_depend>
+      <debian_depend>ros-humble-tf2-geometry-msgs</debian_depend>
+      <debian_depend>ros-humble-tf2-sensor-msgs</debian_depend>
+      <debian_depend>ros-humble-tf2-ros</debian_depend>
+      <debian_depend>ros-humble-tf2-eigen</debian_depend>
+      <debian_depend>ros-humble-tf2</debian_depend>
+      <debian_depend>ros-humble-pcl-conversions</debian_depend>
+      <debian_depend>ros-humble-pcl-msgs</debian_depend>
+      <debian_depend>ros-humble-visualization-msgs</debian_depend>
+      <debian_depend>ros-humble-gtsam</debian_depend>
+      <debian_depend>libpcl-dev</debian_depend>
+      <debian_depend>libopencv-dev</debian_depend>
+      <debian_depend>libeigen3-dev</debian_depend>
+      <debian_depend>geographiclib</debian_depend>
+      <debian_depend>telerob-interface-msgs</debian_depend>
+    </export>
+</package>

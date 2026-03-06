@@ -1,0 +1,4 @@
+services:
+  interface:
+    deploy: !reset {}
+    runtime: runc

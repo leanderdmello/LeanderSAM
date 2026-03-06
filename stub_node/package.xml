@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>stub_node</name>
+  <version>1.0.0</version>
+  <description>Stub interfaces</description>
+  <maintainer email="n.rood@avular.com">niels</maintainer>
+  <license>Avular</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>cmake_avular</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+  <build_depend>interface_msgs</build_depend>
+  <build_depend>slam_manager_msgs</build_depend>
+
+  <exec_depend>slam_manager_msgs</exec_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>interface_msgs</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>slam_manager_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <debian_depend>ros-humble-rclcpp</debian_depend>
+    <debian_depend>ros-humble-std-msgs</debian_depend>
+    <debian_depend>ros-humble-std-srvs</debian_depend>
+    <debian_depend>cmake-avular</debian_depend>
+    <debian_depend>telerob-interface-msgs</debian_depend>
+  </export>
+</package>

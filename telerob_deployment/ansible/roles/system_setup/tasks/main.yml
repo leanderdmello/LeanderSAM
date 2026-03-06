@@ -1,0 +1,227 @@
+- name: Disable unattended upgrades to prevent apt lock issues
+  block:
+    - name: Stop unattended-upgrades service
+      service:
+        name: unattended-upgrades
+        state: stopped
+      become: true
+      ignore_errors: true
+    - name: Disable unattended-upgrades service
+      service:
+        name: unattended-upgrades
+        enabled: false
+      become: true
+      ignore_errors: true
+    - name: Stop apt-daily services
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        masked: true
+      become: true
+      ignore_errors: true
+      loop:
+        - apt-daily.service
+        - apt-daily.timer
+        - apt-daily-upgrade.service
+        - apt-daily-upgrade.timer
+
+- name: Enable online repositories when online
+  when: internet_access == true
+  shell: |
+    # Uncomment all non-comment lines in sources.list
+    sed -i 's/^#deb /deb /g' /etc/apt/sources.list
+    # Uncomment all sources in sources.list.d backup files
+    find /etc/apt/sources.list.d/ -name "*.list" ! -name "offline-local.list" -exec sed -i 's/^#deb /deb /g' {} \;
+    apt-get update
+  become: true
+
+- name: Set up offline repositories
+  block:
+    - name: Ensure temporary directory for package archive
+      tempfile:
+        state: directory
+      register: temp_package_dir
+      become: true
+    - name: Copy package archive to remote
+      unarchive:
+        src: build/packages.tar.gz
+        dest: "{{ temp_package_dir.path }}"
+      become: true
+    - name: Create offline repository directory
+      file:
+        path: /var/local/offline-repo
+        state: directory
+        mode: "0755"
+      become: true
+    - name: Copy offline packages to local repository
+      copy:
+        src: "{{ temp_package_dir.path }}/apt/"
+        dest: /var/local/offline-repo/
+        mode: "0755"
+        remote_src: true
+      become: true
+    - name: Install apt dependencies and apt-utils for creating repository index
+      shell: |
+        cd /var/local/offline-repo/archives
+        # Install in dependency order to handle version upgrades
+        dpkg -i ./libapt-pkg6.0*.deb 2>&1
+        dpkg -i ./apt_*.deb 2>&1
+        dpkg -i ./apt-utils*.deb 2>&1
+      become: true
+    - name: Create repository index
+      shell: |
+        cd /var/local/offline-repo
+        apt-ftparchive packages . > Packages
+        gzip -c Packages > Packages.gz
+        apt-ftparchive release . > Release
+      become: true
+    - name: Add offline repository to apt sources
+      copy:
+        dest: /etc/apt/sources.list.d/offline-local.list
+        content: |
+          deb [trusted=yes] file:/var/local/offline-repo ./
+        mode: "0644"
+      become: true
+    - name: Update apt cache with local repository
+      command: apt-get update
+      become: true
+    - name: Fix broken apt dependencies after dpkg installs
+      command: apt-get --fix-broken install -y
+      become: true
+    - name: Create offline pip packages directory
+      file:
+        path: /opt/offline-packages/pip
+        state: directory
+        mode: "0755"
+      become: true
+    - name: Copy offline pip packages to remote
+      copy:
+        src: "{{ temp_package_dir.path }}/pip/"
+        dest: /opt/offline-packages/pip/
+        mode: "0755"
+        remote_src: true
+      become: true
+  always:
+    - name: Remove temporary package directory
+      file:
+        path: "{{ temp_package_dir.path }}"
+        state: absent
+      become: true
+
+- name: Install Jetpack
+  when: internet_access == true
+  command: "apt-get install -y nvidia-jetpack"
+  become: true
+
+- name: Wait for docker installation from nvidia-container to complete
+  when: internet_access == true
+  wait_for:
+    path: /etc/systemd/system/nv-install-docker.service
+    state: absent
+    timeout: 600
+  become: true
+
+- name: Disable all online repositories when no longer needed (only when previously enabled)
+  shell: |
+    # Comment out all non-comment lines in sources.list
+    sed -i 's/^deb /#deb /g' /etc/apt/sources.list
+    # Comment out all sources in sources.list.d except our offline repo
+    find /etc/apt/sources.list.d/ -name "*.list" ! -name "offline-local.list" -exec sed -i 's/^deb /#deb /g' {} \;
+    apt-get update
+  become: true
+
+- name: Downgrade Docker to fixed version
+  command: "apt-get install -y docker-ce=5:27.5* docker-ce-cli=5:27.5* --allow-downgrades"
+  become: true
+
+- name: Pin docker to fixed version
+  copy:
+    dest: /etc/apt/preferences.d/docker-ce
+    content: |
+      Package: docker-ce
+      Pin: version 5:27.5*
+      Pin-Priority: 1001
+
+      Package: docker-ce-cli
+      Pin: version 5:27.5*
+      Pin-Priority: 1001
+  become: true
+
+- name: Ensure docker is started and enabled
+  service:
+    name: docker
+    state: restarted
+    enabled: true
+  become: true
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: true
+
+- name: Disable default docker bridge (add key to daemon.json)
+  block:
+    - name: Slurp existing daemon.json
+      slurp:
+        src: /etc/docker/daemon.json
+      register: daemon_json_slurp
+      ignore_errors: true
+      become: true
+    - name: Set daemon.json content
+      set_fact:
+        daemon_json_content: "{{ daemon_json_slurp.content | b64decode | from_json | default({}) }}"
+    - name: Update daemon.json to disable default bridge
+      copy:
+        dest: /etc/docker/daemon.json
+        content: "{{ (daemon_json_content | combine({'bridge': 'none'})) | to_nice_json }}"
+      register: updated_daemon_json
+      when: daemon_json_content.bridge is not defined
+      become: true
+    - name: Restart docker if daemon.json was updated
+      service:
+        name: docker
+        state: restarted
+      when: updated_daemon_json.changed
+      become: true
+
+- name: Install gpiod for LED controller
+  command: "apt-get install -y python3-libgpiod gpiod"
+  become: true
+
+- name: Install evtest for sleep on short service
+  command: "apt-get install -y evtest"
+  become: true
+
+- name: Install socat for udp forwarder
+  command: "apt-get install -y socat"
+  become: true
+
+- name: Install ansible and (apt) dependencies used in playbooks
+  command: "apt-get install -y ansible jq python3-pip j2cli"
+  become: true
+
+- name: Install tooling
+  command: "apt-get install -y tcpdump nano"
+  become: true
+
+- name: Install toml parsing libraries (offline)
+  shell: "pip install --no-index --find-links=/opt/offline-packages/pip yq toml 2>/dev/null || true"
+  become: true
+
+- name: Enable persistent journal logs
+  block:
+    - name: Create systemd journal directory
+      file:
+        path: /var/log/journal
+        state: directory
+        mode: "2755"
+        group: systemd-journal
+      become: true
+    - name: Ensure correct settings for persistent journal directory
+      command: "systemd-tmpfiles --create --prefix /var/log/journal"
+      become: true
+    - name: Send SIGUSR1 to journald to start using persistent storage
+      command: "systemctl kill --signal=SIGUSR1 systemd-journald"
+      become: true

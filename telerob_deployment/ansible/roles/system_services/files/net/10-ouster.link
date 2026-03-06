@@ -1,0 +1,5 @@
+[Match]
+Driver=smsc75xx
+
+[Link]
+Name=ouster0

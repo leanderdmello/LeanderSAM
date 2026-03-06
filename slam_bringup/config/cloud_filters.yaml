@@ -1,0 +1,52 @@
+cloud_filters:
+  ros__parameters:
+    topic:
+      in.cloud: "/slam/lidar/points" # Input pointcloud, assumed to have at least xyz and intensity fields
+      out.cloud: "/slam/lidar/points_filtered" # Filtered cloud topic. Will not publish if string is empty
+      out.scan: "/slam/lidar/scan_filtered" # Filtered scan topic. Will not publish if string is empty
+
+    filter_frame_id: "os_lidar" # Frame id in which the filters must be applied. If the incoming message does not match the frame_id, it will be transformed
+
+    scan:
+      range_min: 0.5 # [m] Minimum range for points of the output scan to be counted as valid (Ouster lidar cannot measure before 50 cm)
+      range_max: 50.0 # [m] Maximum range for points of the output scan to be counted as valid
+      output_resolution: 1024 # [-] Desired output resolution. This should be the same or a factor of the input resolution (which is 1024)
+      lidar_frequency: 10.0 # [Hz] Frequency at which the lidar generates the data used for slicing. Required to calculate the scan time needed for motion compensation.
+    
+    diagnostics:
+      frequency:
+        input:
+          min: 5.0
+          max: 20.0
+        output:
+          min: 10.0
+          max: 10.0
+        tolerance: 1.0
+        window: 10
+
+    # Filters
+    filter1:
+      name: "body_filter"
+      type: "cloud_filters/PclBoxFilter"
+      params:
+        x:
+          min: -0.5
+          max: 0.1
+        y:
+          min: -0.4
+          max: 0.4
+        z:
+          min: -5.0
+          max: 5.0
+        keep_outside: true
+      
+    #   Noise removal filter: some single pixel noisy measurements can occur in the point cloud and can reflect in the 2d laserscan.
+    #   Care should be taken so that the noise filter does not filter out small obstacles in the pointcloud. Otherwise the robot may collide into such obstacles.
+    #   The mean_k is the region (no. of points) around each pixel to consider for statistical outliers
+    #   The stddev is the standard deviation of the values of the pixels in the given region to consider as a valid measurement.
+    # filter2:
+    #   name: "noise_removal"
+    #   type: "cloud_filters/PclStatisticalOutlierFilter"
+    #   params:
+    #     mean_k: 5
+    #     stddev: 1.0

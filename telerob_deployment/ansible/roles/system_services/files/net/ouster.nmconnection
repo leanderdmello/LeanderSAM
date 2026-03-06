@@ -1,0 +1,12 @@
+[connection]
+id=ouster
+type=ethernet
+interface-name=ouster0
+autoconnect=true
+
+[ipv4]
+method=manual
+addresses=192.168.100.10/24
+
+[ipv6]
+method=ignore
