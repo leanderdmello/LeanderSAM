@@ -1,0 +1,33 @@
+  Activating project at `/workspaces/telerob-main/julia`
+ERROR: LoadError: Keyword argument `returnvars` expects either `Dict` or `NamedTuple` as an input, but a value of type `Tuple{Symbol}` has been used.
+If you specify a `NamedTuple` with a single entry - make sure you put a trailing comma at then end, e.g. `(x = something, )`. 
+Note: Julia's parser interprets `(x = something)` and (x = something, ) differently. 
+    The first expression defines (or **overwrites!**) the local/global variable named `x` with `something` as a content. 
+    The second expression defines `NamedTuple` with `x` as a key and `something` as a value.
+
+Stacktrace:
+  [1] error(s::String)
+    @ Base ./error.jl:44
+  [2] infer_check_dicttype(keyword::Symbol, ::Tuple{Symbol})
+    @ RxInfer /usr/local/julia-depot/packages/RxInfer/Lf98f/src/inference/inference.jl:334
+  [3] batch_inference(; model::GraphPPL.ModelGenerator{typeof(build_imu_model), @Kwargs{n::Int64, F::Vector{Matrix{Float64}}, c::Vector{Vector{Float64}}, Q::Vector{Matrix{Float64}}, H::Vector{Matrix{Float64}}, d::Vector{Vector{Float64}}, R::Vector{Matrix{Float64}}, m0::Vector{Float64}, P0::Matrix{Float64}}, GraphPPL.PluginsCollection{Tuple{}}, RxInfer.ReactiveMPGraphPPLBackend{Static.False}, String}, data::@NamedTuple{y::Vector{Vector{Float64}}}, initialization::Nothing, constraints::Nothing, meta::Nothing, options::Nothing, returnvars::Tuple{Symbol}, predictvars::Nothing, iterations::Nothing, free_energy::Bool, free_energy_diagnostics::Tuple{RxInfer.ObjectiveDiagnosticCheckNaNs, RxInfer.ObjectiveDiagnosticCheckInfs}, allow_node_contraction::Bool, showprogress::Bool, callbacks::Nothing, addons::Nothing, postprocess::DefaultPostprocess, warn::Bool, catch_exception::Bool)
+    @ RxInfer /usr/local/julia-depot/packages/RxInfer/Lf98f/src/inference/batch.jl:220
+  [4] (::RxInfer.var"#302#303"{GraphPPL.ModelGenerator{typeof(build_imu_model), @Kwargs{n::Int64, F::Vector{Matrix{Float64}}, c::Vector{Vector{Float64}}, Q::Vector{Matrix{Float64}}, H::Vector{Matrix{Float64}}, d::Vector{Vector{Float64}}, R::Vector{Matrix{Float64}}, m0::Vector{Float64}, P0::Matrix{Float64}}, GraphPPL.PluginsCollection{Tuple{}}, RxInfer.ReactiveMPGraphPPLBackend{Static.False}, String}, @NamedTuple{y::Vector{Vector{Float64}}}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Tuple{Symbol}, Nothing, Nothing, Nothing, Nothing, Bool, Tuple{RxInfer.ObjectiveDiagnosticCheckNaNs, RxInfer.ObjectiveDiagnosticCheckInfs}, Bool, Bool, Bool, Nothing, Nothing, DefaultPostprocess, Nothing, Bool, Bool, Bool})(invoke::RxInfer.SessionInvoke)
+    @ RxInfer /usr/local/julia-depot/packages/RxInfer/Lf98f/src/inference/inference.jl:545
+  [5] with_session(f::RxInfer.var"#302#303"{GraphPPL.ModelGenerator{typeof(build_imu_model), @Kwargs{n::Int64, F::Vector{Matrix{Float64}}, c::Vector{Vector{Float64}}, Q::Vector{Matrix{Float64}}, H::Vector{Matrix{Float64}}, d::Vector{Vector{Float64}}, R::Vector{Matrix{Float64}}, m0::Vector{Float64}, P0::Matrix{Float64}}, GraphPPL.PluginsCollection{Tuple{}}, RxInfer.ReactiveMPGraphPPLBackend{Static.False}, String}, @NamedTuple{y::Vector{Vector{Float64}}}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Tuple{Symbol}, Nothing, Nothing, Nothing, Nothing, Bool, Tuple{RxInfer.ObjectiveDiagnosticCheckNaNs, RxInfer.ObjectiveDiagnosticCheckInfs}, Bool, Bool, Bool, Nothing, Nothing, DefaultPostprocess, Nothing, Bool, Bool, Bool}, session::RxInfer.Session, label::Symbol)
+    @ RxInfer /usr/local/julia-depot/packages/RxInfer/Lf98f/src/session.jl:253
+  [6] infer(; model::GraphPPL.ModelGenerator{typeof(build_imu_model), @Kwargs{n::Int64, F::Vector{Matrix{Float64}}, c::Vector{Vector{Float64}}, Q::Vector{Matrix{Float64}}, H::Vector{Matrix{Float64}}, d::Vector{Vector{Float64}}, R::Vector{Matrix{Float64}}, m0::Vector{Float64}, P0::Matrix{Float64}}, GraphPPL.PluginsCollection{Tuple{}}, RxInfer.ReactiveMPGraphPPLBackend{Static.False}, String}, data::@NamedTuple{y::Vector{Vector{Float64}}}, datastream::Nothing, autoupdates::Nothing, initialization::Nothing, initmessages::Nothing, initmarginals::Nothing, constraints::Nothing, meta::Nothing, options::Nothing, returnvars::Tuple{Symbol}, predictvars::Nothing, historyvars::Nothing, keephistory::Nothing, iterations::Nothing, free_energy::Bool, free_energy_diagnostics::Tuple{RxInfer.ObjectiveDiagnosticCheckNaNs, RxInfer.ObjectiveDiagnosticCheckInfs}, allow_node_contraction::Bool, showprogress::Bool, catch_exception::Bool, callbacks::Nothing, addons::Nothing, postprocess::DefaultPostprocess, events::Nothing, uselock::Bool, autostart::Bool, warn::Bool, session::RxInfer.Session)
+    @ RxInfer /usr/local/julia-depot/packages/RxInfer/Lf98f/src/inference/inference.jl:515
+  [7] infer_packet(packet::@NamedTuple{n::Int64, state_dim::Int64, obs_dim::Int64, m0::Vector{Float64}, P0::Matrix{Float64}, F::Vector{Matrix{Float64}}, c::Vector{Vector{Float64}}, Q::Vector{Matrix{Float64}}, H::Vector{Matrix{Float64}}, d::Vector{Vector{Float64}}, R::Vector{Matrix{Float64}}, y::Vector{Vector{Float64}}})
+    @ Main /workspaces/telerob-main/julia/imu_infer.jl:70
+  [8] main()
+    @ Main /workspaces/telerob-main/julia/imu_infer.jl:104
+  [9] top-level scope
+    @ /workspaces/telerob-main/julia/imu_infer.jl:111
+ [10] include(mod::Module, _path::String)
+    @ Base ./Base.jl:306
+ [11] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:317
+ [12] _start()
+    @ Base ./client.jl:550
+in expression starting at /workspaces/telerob-main/julia/imu_infer.jl:111

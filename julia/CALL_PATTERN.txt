@@ -1,0 +1,5 @@
+Validated call pattern:
+
+/workspaces/telerob-main/julia/run_imu_infer.sh \
+/workspaces/telerob-main/julia/examples/validated/imu_packet_working.json \
+/tmp/out.json

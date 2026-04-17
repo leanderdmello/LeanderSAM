@@ -1,0 +1,5 @@
+Baseline case:
+/workspaces/telerob-main/julia/run_imu_infer.sh /workspaces/telerob-main/julia/examples/validated/imu_packet_working.json /tmp/out.json
+
+Transition case:
+/workspaces/telerob-main/julia/run_imu_infer.sh /workspaces/telerob-main/julia/examples/validated/imu_packet_transition_test.json /tmp/out.json

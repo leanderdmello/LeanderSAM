@@ -27,6 +27,9 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp>
 
+#include "julia_imu_bridge.hpp"
+#include <iostream>
+
 using gtsam::symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
 using gtsam::symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
 using gtsam::symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
@@ -349,8 +352,7 @@ public:
             gtsam::Matrix33::Identity(3, 3) *
             pow(1e-4, 2); // error committed in integrating position from velocities
         gtsam::imuBias::ConstantBias prior_imu_bias(
-            (gtsam::Vector(6) << 0, 0, 0, 0, 0, 0).finished());
-        ; // assume zero initial bias
+            (gtsam::Vector(6) << 0, 0, 0, 0, 0, 0).finished()); // assume zero initial bias
 
         priorPoseNoise = gtsam::noiseModel::Diagonal::Sigmas(
             (gtsam::Vector(6) << 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2)
@@ -373,6 +375,7 @@ public:
         imuIntegratorOpt_ = std::make_unique<gtsam::PreintegratedImuMeasurements>(
             preIntegrationParams_,
             prior_imu_bias); // setting up the IMU integration for optimization
+        
         RCLCPP_INFO(get_logger(), "%s configured", this->get_name());
         return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
     }
@@ -610,6 +613,31 @@ public:
         graphValues.insert(X(key), propState_.pose());
         graphValues.insert(V(key), propState_.v());
         graphValues.insert(B(key), prevBias_);
+        {
+            const gtsam::Point3 prev_position = prevPose_.translation();
+            const gtsam::Point3 predicted_position = propState_.pose().translation();
+            const gtsam::Point3 observed_position = curPose.translation();
+
+            const std::string packet = buildSimplePositionPacket(
+                prev_position,
+                predicted_position,
+                observed_position);
+
+            JuliaImuResult julia_result;
+            if (!runJuliaImuFromPacketString(packet, julia_result))
+            {
+                std::cerr << "Failed to run Julia IMU bridge from LIORF state" << std::endl;
+            }
+            else
+            {
+                std::cerr << "Julia position mean:";
+                for (double v : julia_result.mean)
+                {
+                    std::cerr << " " << v;
+                }
+                std::cerr << std::endl;
+            }
+        }
         // optimize
         optimizer.update(graphFactors, graphValues);
         optimizer.update();
@@ -700,7 +728,11 @@ public:
         imuQueImu.push_back(thisImu);
 
         if(doneFirstOpt == false)
-            return;
+        {
+            doneFirstOpt = true;
+            prevStateOdom = prevState_;
+            prevBiasOdom = prevBias_;
+        }
 
         double imuTime = ROS_TIME((&thisImu)->header.stamp);
         double dt      = (lastImuT_imu < 0) ? (1.0 / imuRate) : (imuTime - lastImuT_imu);

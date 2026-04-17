@@ -10,3 +10,8 @@ pointcloud
 *.a
 telerob_deployment/ansible/roles/deployment/files
 telerob_deployment/build
+
+# ROS bag files
+only_imu_and_points_data/
+*.db3
+*.mcap

@@ -286,31 +286,59 @@ public:
         odomQueue.push_back(*odometryMsg);
     }
 
-    void cloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
-    {
-        if(!cachePointCloud(laserCloudMsg))
-            return;
+void cloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
+{
+    const double stamp = rclcpp::Time(laserCloudMsg->header.stamp).seconds();
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: received cloud at %.6f", stamp);
 
-        if(!deskewInfo())
-            return;
+    bool ok_cache = cachePointCloud(laserCloudMsg);
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: cachePointCloud -> %s", ok_cache ? "true" : "false");
+    if (!ok_cache)
+        return;
 
-        projectPointCloud();
+    bool ok_deskew = deskewInfo();
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: deskewInfo -> %s", ok_deskew ? "true" : "false");
+    if (!ok_deskew)
+        return;
 
-        publishClouds();
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: entering projectPointCloud()");
+    projectPointCloud();
 
-        resetParameters();
-    }
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: entering publishClouds()");
+    publishClouds();
+
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: entering resetParameters()");
+    resetParameters();
+
+    RCLCPP_INFO(this->get_logger(), "cloudHandler: finished frame");
+}
 
     bool cachePointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr &laserCloudMsg)
     {
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
-        if(cloudQueue.size() <= 2)
+        RCLCPP_INFO(this->get_logger(), "cachePointCloud: queue size = %zu", cloudQueue.size());
+
+        if (cloudQueue.size() <= 2)
+        {
+            RCLCPP_WARN(this->get_logger(), "cachePointCloud: returning false because queue size <= 2");
             return false;
+        }
 
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
+
+        RCLCPP_INFO(this->get_logger(), "cachePointCloud: selected cloud stamp = %.9f",
+                    rclcpp::Time(currentCloudMsg.header.stamp).seconds());
+
+        RCLCPP_INFO(this->get_logger(), "cachePointCloud: fields:");
+        for (const auto &field : currentCloudMsg.fields)
+        {
+            RCLCPP_INFO(this->get_logger(), "  name=%s offset=%u datatype=%u count=%u",
+                        field.name.c_str(), field.offset, field.datatype, field.count);
+        }
+
         if(sensor == SensorType::VELODYNE || sensor == SensorType::LIVOX)
         {
             pcl::moveFromROSMsg(currentCloudMsg, *laserCloudIn);
@@ -355,10 +383,17 @@ public:
         {
             pcl::PointCloud<RobosensePointXYZIRT>::Ptr tmpRobosenseCloudIn(
                 new pcl::PointCloud<RobosensePointXYZIRT>());
+
             // Convert to robosense format
             pcl::moveFromROSMsg(currentCloudMsg, *tmpRobosenseCloudIn);
             laserCloudIn->points.resize(tmpRobosenseCloudIn->size());
             laserCloudIn->is_dense = tmpRobosenseCloudIn->is_dense;
+
+            if (tmpRobosenseCloudIn->points.empty())
+            {
+                RCLCPP_ERROR(this->get_logger(), "cachePointCloud: tmpRobosenseCloudIn is empty");
+                return false;
+            }
 
             double start_stamptime = tmpRobosenseCloudIn->points[0].timestamp;
             for(size_t i = 0; i < tmpRobosenseCloudIn->size(); i++)
@@ -377,16 +412,30 @@ public:
         {
             RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor type: " << int(sensor));
             rclcpp::shutdown();
+            return false;
         }
 
-        // get timestamp
-        cloudHeader = currentCloudMsg.header;
-        timeScanCur = rclcpp::Time(cloudHeader.stamp).seconds();
-        timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
+        RCLCPP_INFO(this->get_logger(), "cachePointCloud: converted size=%zu is_dense=%d",
+                    laserCloudIn->points.size(), laserCloudIn->is_dense);
+
+        if (laserCloudIn->points.empty())
+        {
+            RCLCPP_ERROR(this->get_logger(), "cachePointCloud: converted cloud is empty");
+            return false;
+        }
 
         // remove Nan
-        vector<int> indices;
+        std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
+
+        RCLCPP_INFO(this->get_logger(), "cachePointCloud: size after NaN removal=%zu",
+                    laserCloudIn->points.size());
+
+        if (laserCloudIn->points.empty())
+        {
+            RCLCPP_ERROR(this->get_logger(), "cachePointCloud: cloud empty after NaN removal");
+            return false;
+        }
 
         // check dense flag
         if(laserCloudIn->is_dense == false)
@@ -395,6 +444,35 @@ public:
                 get_logger(),
                 "Point cloud is not in dense format, please remove NaN points first!");
             rclcpp::shutdown();
+            return false;
+        }
+
+        // get timestamp
+        cloudHeader = currentCloudMsg.header;
+        timeScanCur = rclcpp::Time(cloudHeader.stamp).seconds();
+        timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
+
+        RCLCPP_INFO(this->get_logger(),
+                    "cachePointCloud: timeScanCur=%.9f timeScanEnd=%.9f duration=%.9f",
+                    timeScanCur, timeScanEnd, timeScanEnd - timeScanCur);
+
+        size_t n = laserCloudIn->points.size();
+        size_t sample_count = std::min<size_t>(5, n);
+
+        for (size_t i = 0; i < sample_count; ++i)
+        {
+            const auto &p = laserCloudIn->points[i];
+            RCLCPP_INFO(this->get_logger(),
+                        "cachePointCloud: first[%zu] ring=%u time=%.9f xyz=(%.3f, %.3f, %.3f)",
+                        i, p.ring, p.time, p.x, p.y, p.z);
+        }
+
+        for (size_t i = n - sample_count; i < n; ++i)
+        {
+            const auto &p = laserCloudIn->points[i];
+            RCLCPP_INFO(this->get_logger(),
+                        "cachePointCloud: last[%zu] ring=%u time=%.9f xyz=(%.3f, %.3f, %.3f)",
+                        i, p.ring, p.time, p.x, p.y, p.z);
         }
 
         // check ring channel
@@ -410,11 +488,13 @@ public:
                     break;
                 }
             }
+            RCLCPP_INFO(this->get_logger(), "cachePointCloud: ringFlag=%d", ringFlag);
             if(ringFlag == -1)
             {
                 RCLCPP_ERROR_STREAM(get_logger(), "Point cloud ring channel not available, please "
-                                                  "configure your point cloud data!");
+                                                "configure your point cloud data!");
                 rclcpp::shutdown();
+                return false;
             }
         }
 
@@ -430,9 +510,10 @@ public:
                     break;
                 }
             }
+            RCLCPP_INFO(this->get_logger(), "cachePointCloud: deskewFlag=%d", deskewFlag);
             if(deskewFlag == -1)
-                RCLCPP_WARN(get_logger(), "Point cloud timestamp not available, deskew function "
-                                          "disabled, system will drift significantly!");
+                RCLCPP_WARN(this->get_logger(), "Point cloud timestamp not available, deskew function "
+                                                "disabled, system will drift significantly!");
         }
 
         return true;
@@ -440,6 +521,21 @@ public:
 
     bool deskewInfo()
     {
+        RCLCPP_INFO(this->get_logger(),
+                "deskewInfo: timeScanCur=%.9f timeScanEnd=%.9f imuQueueSize=%zu",
+                timeScanCur, timeScanEnd, imuQueue.size());
+
+        if (!imuQueue.empty())
+        {
+            RCLCPP_INFO(this->get_logger(),
+                        "deskewInfo: imu front=%.9f back=%.9f",
+                        rclcpp::Time(imuQueue.front().header.stamp).seconds(),
+                        rclcpp::Time(imuQueue.back().header.stamp).seconds());
+        }
+        else
+        {
+            RCLCPP_WARN(this->get_logger(), "deskewInfo: imuQueue is empty");
+        }
         std::lock_guard<std::mutex> lock1(imuLock);
         std::lock_guard<std::mutex> lock2(odoLock);
 
@@ -448,6 +544,7 @@ public:
            ROS_TIME(imuQueue.back().header.stamp) < timeScanEnd)
         {
             RCLCPP_DEBUG(get_logger(), "Waiting for IMU data ...");
+            RCLCPP_WARN(this->get_logger(), "deskewInfo: returning false because IMU queue does not cover scan interval");
             return false;
         }
 

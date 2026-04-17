@@ -1,0 +1,4 @@
+Julia binary: /usr/local/bin/julia
+Julia version: 1.12.5
+Validated wrapper: /workspaces/telerob-main/julia/run_imu_infer.sh
+Validated call pattern: /workspaces/telerob-main/julia/CALL_PATTERN.txt

@@ -1,15 +1,10 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
 	"name": "SLAM container development environment",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "ghcr.io/avular-robotics/telerob-slam-bringup-dev:nightly",
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "./.devcontainer/setup.bash slam",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "../.."
+	},
+	"postCreateCommand": "bash -lc './.devcontainer/setup.bash slam && mkdir -p /workspaces/telerob-main/julia && julia /workspaces/telerob-main/julia/install_packages.jl'",
 	"runArgs": [
 		"--privileged"
 	],
@@ -26,8 +21,4 @@
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	}
-	// Configure tool-specific properties.
-	// "customizations": {},
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
 }
