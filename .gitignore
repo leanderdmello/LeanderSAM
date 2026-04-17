@@ -15,3 +15,8 @@ telerob_deployment/build
 only_imu_and_points_data/
 *.db3
 *.mcap
+
+# ROS bag files
+only_imu_and_points_data/
+*.db3
+*.mcap

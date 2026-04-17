@@ -9,6 +9,8 @@ RUN mkdir -p /var/lib/apt/lists/partial \
     curl \
     ca-certificates \
     xz-utils \
+    ros-humble-ros2bag \
+    ros-humble-rosbag2-storage-default-plugins \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://install.julialang.org | sh -s -- --yes --path /usr/local/juliaup \

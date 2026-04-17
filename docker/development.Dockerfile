@@ -111,6 +111,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-ament-clang-format \
     ros-${ROS_DISTRO}-ament-cmake \
     ros-${ROS_DISTRO}-ament-cmake-auto \
+    ros-${ROS_DISTRO}-ros2bag \
+    ros-${ROS_DISTRO}-rosbag2-storage-default-plugins \
     # Testing
     python3-pytest lcov ros-${ROS_DISTRO}-ros-gz python3-behave \
     # Docker
